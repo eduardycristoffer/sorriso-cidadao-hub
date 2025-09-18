@@ -436,23 +436,31 @@ const Admin = () => {
                       <TableHead>Data Cadastro</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    {usuarios.map((usuario: any) => (
-                      <TableRow key={usuario.id}>
-                        <TableCell className="font-medium">{usuario.nome}</TableCell>
-                        <TableCell>{usuario.email}</TableCell>
-                        <TableCell>{usuario.cpf || '-'}</TableCell>
-                        <TableCell>
-                          {getAssinaturaStatusBadge(usuario.assinatura_status)}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                   <TableBody>
+                     {usuarios.length === 0 ? (
+                       <TableRow>
+                         <TableCell colSpan={5} className="text-center text-muted-foreground">
+                           Nenhum usuário encontrado
+                         </TableCell>
+                       </TableRow>
+                     ) : (
+                       usuarios.map((usuario: any) => (
+                         <TableRow key={usuario.id}>
+                           <TableCell className="font-medium">{usuario.nome}</TableCell>
+                           <TableCell>{usuario.email}</TableCell>
+                           <TableCell>{usuario.cpf || '-'}</TableCell>
+                           <TableCell>
+                             {getAssinaturaStatusBadge(usuario.assinatura_status)}
+                           </TableCell>
+                           <TableCell>
+                             {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
+                           </TableCell>
+                         </TableRow>
+                       ))
+                     )}
+                   </TableBody>
+                 </Table>
+               </CardContent>
             </Card>
           </TabsContent>
 
