@@ -125,17 +125,28 @@ const WizardConsulta = ({
 
     setLoading(true);
     try {
-      // Get current user
+      // Get current user from auth
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         throw new Error("Usuário não autenticado");
       }
 
+      // Get user record from usuarios table
+      const { data: userData, error: userError } = await supabase
+        .from("usuarios")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .single();
+
+      if (userError || !userData) {
+        throw new Error("Usuário não encontrado no sistema");
+      }
+
       const { error } = await supabase
         .from("ordens_servico")
         .insert({
-          cliente_id: user.id,
+          cliente_id: userData.id,
           procedimento_id: procedimento.id,
           clinica_id: clinica.id,
           data_solicitada: new Date(dataConsulta).toISOString(),
