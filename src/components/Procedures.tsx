@@ -210,7 +210,7 @@ export const Procedures = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20 mb-6">
               <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl md:text-3xl font-bold">12x R$ 4,99</div>
+                  <div className="text-2xl md:text-3xl font-bold">12x R$ 7,39</div>
                   <div className="text-sm text-white/80">no cartão</div>
                 </div>
                 <div className="text-white/60 text-sm">ou</div>
