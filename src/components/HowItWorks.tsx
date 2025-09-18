@@ -25,7 +25,7 @@ export const HowItWorks = () => {
   ];
 
   const handleCheckout = () => {
-    window.open("https://checkout-externo.com", "_blank");
+    window.open("https://checkout.sorrisocidadao.com/VCCL1O8SCA33", "_blank");
   };
 
   return (

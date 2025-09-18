@@ -22,8 +22,7 @@ export const Header = () => {
   };
 
   const handleCheckout = () => {
-    // TODO: Implementar link do checkout externo
-    window.open("https://checkout-externo.com", "_blank");
+    window.open("https://checkout.sorrisocidadao.com/VCCL1O8SCA33", "_blank");
   };
 
   return (

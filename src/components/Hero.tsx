@@ -4,8 +4,7 @@ import cartaoHero from "@/assets/cartao-hero.png";
 
 export const Hero = () => {
   const handleCheckout = () => {
-    // TODO: Implementar link do checkout externo
-    window.open("https://checkout-externo.com", "_blank");
+    window.open("https://checkout.sorrisocidadao.com/VCCL1O8SCA33", "_blank");
   };
 
   const scrollToProcedimentos = () => {
