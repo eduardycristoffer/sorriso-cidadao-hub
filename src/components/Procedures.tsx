@@ -183,12 +183,12 @@ export const Procedures = () => {
                   <div className="text-sm text-muted-foreground">{procedure.categoria_nome}</div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Price Display */}
+                  {/* Hidden Price - Exclusive for cardholders */}
                   <div className="relative">
                     <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 border border-primary/20">
                       <div className="text-center">
-                        <div className="text-lg md:text-xl font-bold text-primary">
-                          {formatPrice(procedure)}
+                        <div className="text-lg md:text-xl font-bold text-muted-foreground">
+                          💳 Preço exclusivo
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           Valor exclusivo para portadores
@@ -258,20 +258,6 @@ export const Procedures = () => {
               </div>
             </div>
 
-            {/* Pricing */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20 mb-6">
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl md:text-3xl font-bold">12x R$ 7,39</div>
-                  <div className="text-sm text-white/80">no cartão</div>
-                </div>
-                <div className="text-white/60 text-sm">ou</div>
-                <div className="text-center">
-                  <div className="text-xl md:text-2xl font-semibold">R$ 59,90</div>
-                  <div className="text-sm text-white/80">à vista</div>
-                </div>
-              </div>
-            </div>
 
             <Button 
               variant="hero" 
@@ -279,7 +265,7 @@ export const Procedures = () => {
               onClick={handleCheckout}
               className="w-full sm:w-auto text-base md:text-lg px-8 md:px-12 py-3 md:py-4 bg-secondary hover:bg-secondary-hover text-secondary-foreground font-bold"
             >
-              Assinar Cartão por R$ 59,90
+              Assinar Cartão Sorriso Cidadão
             </Button>
             
             <p className="text-xs md:text-sm text-white/70 mt-3">
