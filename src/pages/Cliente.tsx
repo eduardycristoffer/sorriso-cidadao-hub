@@ -265,18 +265,20 @@ const Cliente = () => {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <img 
                 src={logoSorrisoCidadao} 
                 alt="Sorriso Cidadão" 
-                className="h-8 w-auto"
+                className="h-6 sm:h-8 w-auto"
               />
-              <span className="text-xl font-bold text-gray-900">Área do Cliente</span>
+              <span className="text-base sm:text-xl font-bold text-gray-900 hidden sm:block">Área do Cliente</span>
+              <span className="text-sm font-bold text-gray-900 sm:hidden">Cliente</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Olá, {user?.nome}</span>
-              <Button onClick={handleLogout} variant="outline" size="sm">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="text-xs sm:text-sm text-gray-600 hidden sm:block">Olá, {user?.nome}</span>
+              <span className="text-xs text-gray-600 sm:hidden">Olá, {user?.nome?.split(' ')[0]}</span>
+              <Button onClick={handleLogout} variant="outline" size="sm" className="text-xs sm:text-sm">
                 Sair
               </Button>
             </div>
@@ -285,12 +287,12 @@ const Cliente = () => {
       </header>
 
       {/* Navigation */}
-      <nav className="bg-white border-b">
+      <nav className="bg-white border-b overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          <div className="flex space-x-4 sm:space-x-8 min-w-max">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                 activeTab === "dashboard"
                   ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -300,7 +302,7 @@ const Cliente = () => {
             </button>
             <button
               onClick={() => setActiveTab("consultas")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                 activeTab === "consultas"
                   ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -313,11 +315,11 @@ const Cliente = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {activeTab === "dashboard" && (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Status Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Status da Assinatura</CardTitle>
@@ -326,7 +328,7 @@ const Cliente = () => {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-2xl font-bold">{getStatusBadge(user?.assinatura_status || "PENDENTE")}</div>
+                      <div className="text-xl sm:text-2xl font-bold">{getStatusBadge(user?.assinatura_status || "PENDENTE")}</div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Cartão Sorriso Cidadão
                       </p>
@@ -347,7 +349,7 @@ const Cliente = () => {
                     onClick={() => handleSolicitarConsulta()}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    Solicitar Consulta
+                    <span className="text-sm sm:text-base">Solicitar Consulta</span>
                   </Button>
                   <p className="text-xs text-muted-foreground mt-2">
                     Escolha um procedimento abaixo e solicite sua consulta
@@ -359,21 +361,21 @@ const Cliente = () => {
             {/* Procedimentos */}
             <Card>
               <CardHeader>
-                <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                <div className="flex flex-col space-y-4">
                   <div>
-                    <CardTitle>Procedimentos Disponíveis</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-lg sm:text-xl">Procedimentos Disponíveis</CardTitle>
+                    <CardDescription className="text-sm">
                       Escolha um procedimento e solicite sua consulta
                     </CardDescription>
                   </div>
                   <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                    <div className="relative">
+                    <div className="relative flex-1">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Buscar procedimento..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 w-full sm:w-64"
+                        className="pl-8 text-sm"
                       />
                     </div>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -393,128 +395,232 @@ const Cliente = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Procedimento</TableHead>
-                      <TableHead>Preço</TableHead>
-                      <TableHead className="text-right">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProcedimentos.length === 0 ? (
+              <CardContent className="p-0 sm:p-6">
+                {/* Desktop Table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                          {procedimentos.length === 0 ? "Carregando procedimentos..." : "Nenhum procedimento encontrado"}
-                        </TableCell>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Procedimento</TableHead>
+                        <TableHead>Preço</TableHead>
+                        <TableHead className="text-right">Ação</TableHead>
                       </TableRow>
-                    ) : (
-                      filteredProcedimentos.map((procedimento) => (
-                        <TableRow key={procedimento.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span>{procedimento.categorias?.icone || "📋"}</span>
-                              <span className="font-medium">{procedimento.categorias?.nome}</span>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProcedimentos.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            {procedimentos.length === 0 ? "Carregando procedimentos..." : "Nenhum procedimento encontrado"}
                           </TableCell>
-                          <TableCell>{procedimento.nome}</TableCell>
-                          <TableCell>{formatPrice(procedimento.preco_min, procedimento.preco_max)}</TableCell>
-                          <TableCell className="text-right">
+                        </TableRow>
+                      ) : (
+                        filteredProcedimentos.map((procedimento) => (
+                          <TableRow key={procedimento.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span>{procedimento.categorias?.icone || "📋"}</span>
+                                <span className="font-medium">{procedimento.categorias?.nome}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{procedimento.nome}</TableCell>
+                            <TableCell>{formatPrice(procedimento.preco_min, procedimento.preco_max)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleSolicitarConsulta(procedimento)}
+                              >
+                                Solicitar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="sm:hidden space-y-3 p-4">
+                  {filteredProcedimentos.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {procedimentos.length === 0 ? "Carregando procedimentos..." : "Nenhum procedimento encontrado"}
+                    </div>
+                  ) : (
+                    filteredProcedimentos.map((procedimento) => (
+                      <Card key={procedimento.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{procedimento.categorias?.icone || "📋"}</span>
+                            <div>
+                              <p className="text-xs text-muted-foreground">{procedimento.categorias?.nome}</p>
+                              <p className="font-medium text-sm">{procedimento.nome}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-primary">
+                              {formatPrice(procedimento.preco_min, procedimento.preco_max)}
+                            </div>
                             <Button 
                               size="sm" 
                               variant="outline"
                               onClick={() => handleSolicitarConsulta(procedimento)}
+                              className="text-xs"
                             >
                               Solicitar
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
         )}
 
         {activeTab === "consultas" && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Minhas Consultas</h2>
-              <p className="text-gray-600 mt-2">Acompanhe o status das suas solicitações</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Minhas Consultas</h2>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Acompanhe o status das suas solicitações</p>
             </div>
 
             <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Clínica</TableHead>
-                      <TableHead>Procedimento</TableHead>
-                      <TableHead>Data Solicitada</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ordens.map((ordem) => (
-                      <TableRow key={ordem.id}>
-                        <TableCell className="font-mono text-sm">
-                          {ordem.id.slice(0, 8)}...
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{ordem.clinicas?.nome}</div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {ordem.clinicas?.cidade}
+              <CardContent className="p-0 sm:p-6">
+                {/* Desktop Table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Clínica</TableHead>
+                        <TableHead>Procedimento</TableHead>
+                        <TableHead>Data Solicitada</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ordens.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <p>Você ainda não tem consultas agendadas</p>
+                            <Button 
+                              className="mt-4" 
+                              onClick={() => setActiveTab("dashboard")}
+                            >
+                              Solicitar Primeira Consulta
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        ordens.map((ordem) => (
+                          <TableRow key={ordem.id}>
+                            <TableCell className="font-mono text-sm">
+                              {ordem.id.slice(0, 8)}...
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{ordem.clinicas?.nome}</div>
+                                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {ordem.clinicas?.cidade}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{ordem.procedimentos?.nome}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                {new Date(ordem.data_solicitada).toLocaleDateString("pt-BR")}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                ordem.status === "confirmada" ? "default" :
+                                ordem.status === "realizada" ? "secondary" :
+                                ordem.status === "cancelada" ? "destructive" :
+                                "outline"
+                              }>
+                                {ordem.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {ordem.status === "solicitada" && (
+                                <Button size="sm" variant="destructive">
+                                  Cancelar
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="sm:hidden space-y-3 p-4">
+                  {ordens.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Você ainda não tem consultas agendadas</p>
+                      <Button 
+                        className="mt-4" 
+                        onClick={() => setActiveTab("dashboard")}
+                        size="sm"
+                      >
+                        Solicitar Primeira Consulta
+                      </Button>
+                    </div>
+                  ) : (
+                    ordens.map((ordem) => (
+                      <Card key={ordem.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-mono text-xs text-muted-foreground">
+                                #{ordem.id.slice(0, 8)}...
+                              </p>
+                              <p className="font-medium text-sm">{ordem.procedimentos?.nome}</p>
+                            </div>
+                            <Badge variant={
+                              ordem.status === "confirmada" ? "default" :
+                              ordem.status === "realizada" ? "secondary" :
+                              ordem.status === "cancelada" ? "destructive" :
+                              "outline"
+                            } className="text-xs">
+                              {ordem.status}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-medium">{ordem.clinicas?.nome}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3 w-3 text-muted-foreground" />
+                              <span>{new Date(ordem.data_solicitada).toLocaleDateString("pt-BR")}</span>
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>{ordem.procedimentos?.nome}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {new Date(ordem.data_solicitada).toLocaleDateString("pt-BR")}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            ordem.status === "confirmada" ? "default" :
-                            ordem.status === "realizada" ? "secondary" :
-                            ordem.status === "cancelada" ? "destructive" :
-                            "outline"
-                          }>
-                            {ordem.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
+
                           {ordem.status === "solicitada" && (
-                            <Button size="sm" variant="destructive">
-                              Cancelar
-                            </Button>
+                            <div className="pt-2 border-t">
+                              <Button variant="destructive" size="sm" className="w-full text-xs">
+                                Cancelar Consulta
+                              </Button>
+                            </div>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {ordens.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Você ainda não tem consultas agendadas</p>
-                    <Button 
-                      className="mt-4" 
-                      onClick={() => setActiveTab("dashboard")}
-                    >
-                      Solicitar Primeira Consulta
-                    </Button>
-                  </div>
-                )}
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
