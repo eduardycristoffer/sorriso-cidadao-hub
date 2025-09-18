@@ -43,7 +43,8 @@ const WizardConsulta = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [procedimento, setProcedimento] = useState<Procedimento | null>(procedimentoSelecionado || null);
   const [clinica, setClinica] = useState<Clinica | null>(null);
-  const [dataHorario, setDataHorario] = useState("");
+  const [dataConsulta, setDataConsulta] = useState("");
+  const [periodoConsulta, setPeriodoConsulta] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [procedimentos, setProcedimentos] = useState<Procedimento[]>([]);
   const [clinicas, setClinicas] = useState<Clinica[]>([]);
@@ -60,7 +61,8 @@ const WizardConsulta = ({
         setCurrentStep(1);
         setProcedimento(null);
         setClinica(null);
-        setDataHorario("");
+        setDataConsulta("");
+        setPeriodoConsulta("");
         setObservacoes("");
       } else {
         setCurrentStep(2); // Skip to clinica selection if procedimento is pre-selected
@@ -112,7 +114,7 @@ const WizardConsulta = ({
   };
 
   const handleSubmit = async () => {
-    if (!procedimento || !clinica || !dataHorario) {
+    if (!procedimento || !clinica || !dataConsulta || !periodoConsulta) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -123,13 +125,21 @@ const WizardConsulta = ({
 
     setLoading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
+
       const { error } = await supabase
         .from("ordens_servico")
         .insert({
-          cliente_id: clienteId,
+          cliente_id: user.id,
           procedimento_id: procedimento.id,
           clinica_id: clinica.id,
-          data_solicitada: new Date(dataHorario).toISOString(),
+          data_solicitada: new Date(dataConsulta).toISOString(),
+          periodo_preferido: periodoConsulta,
           observacoes_cliente: observacoes,
           status: "solicitada"
         });
@@ -178,7 +188,7 @@ const WizardConsulta = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -232,15 +242,15 @@ const WizardConsulta = ({
                       }`}
                       onClick={() => setProcedimento(proc)}
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-medium">{proc.nome}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatPrice(proc.preco_min, proc.preco_max)}
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm sm:text-base">{proc.nome}</h4>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            Preço exclusivo
                           </p>
                         </div>
                         {procedimento?.id === proc.id && (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                         )}
                       </div>
                     </div>
@@ -271,22 +281,22 @@ const WizardConsulta = ({
                       }`}
                       onClick={() => setClinica(cli)}
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-medium">{cli.nome}</h4>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {cli.cidade} - {cli.endereco}
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm sm:text-base">{cli.nome}</h4>
+                          <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                            <p className="flex items-start gap-1">
+                              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span className="break-words">{cli.cidade} - {cli.endereco}</span>
                             </p>
-                            <p className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {cli.horario_funcionamento}
+                            <p className="flex items-start gap-1">
+                              <Clock className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span className="break-words">{cli.horario_funcionamento}</span>
                             </p>
                           </div>
                         </div>
                         {clinica?.id === cli.id && (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                         )}
                       </div>
                     </div>
@@ -300,25 +310,39 @@ const WizardConsulta = ({
           {currentStep === 3 && (
             <Card>
               <CardHeader>
-                <CardTitle>Data e Horário Preferidos</CardTitle>
+                <CardTitle>Data e Período Preferidos</CardTitle>
                 <CardDescription>
                   Informe quando você gostaria de realizar o procedimento
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="datetime">Data e Horário</Label>
-                  <Input
-                    id="datetime"
-                    type="datetime-local"
-                    value={dataHorario}
-                    onChange={(e) => setDataHorario(e.target.value)}
-                    min={new Date().toISOString().slice(0, 16)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Esta é uma sugestão. A clínica confirmará a disponibilidade.
-                  </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="data">Data da Consulta</Label>
+                    <Input
+                      id="data"
+                      type="date"
+                      value={dataConsulta}
+                      onChange={(e) => setDataConsulta(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="periodo">Período</Label>
+                    <Select value={periodoConsulta} onValueChange={setPeriodoConsulta}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MANHA">Manhã</SelectItem>
+                        <SelectItem value="TARDE">Tarde</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Esta é uma preferência. A clínica confirmará a disponibilidade e horário exato.
+                </p>
                 <div>
                   <Label htmlFor="observacoes">Observações (opcional)</Label>
                   <Textarea
@@ -327,6 +351,7 @@ const WizardConsulta = ({
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value)}
                     rows={3}
+                    className="resize-none"
                   />
                 </div>
               </CardContent>
@@ -347,7 +372,7 @@ const WizardConsulta = ({
                   <div>
                     <h4 className="font-medium">Procedimento</h4>
                     <p className="text-sm text-muted-foreground">
-                      {procedimento?.nome} - {procedimento && formatPrice(procedimento.preco_min, procedimento.preco_max)}
+                      {procedimento?.nome} - Preço exclusivo
                     </p>
                   </div>
                   <div>
@@ -357,9 +382,9 @@ const WizardConsulta = ({
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium">Data e Horário Sugeridos</h4>
+                    <h4 className="font-medium">Data e Período Preferidos</h4>
                     <p className="text-sm text-muted-foreground">
-                      {dataHorario && new Date(dataHorario).toLocaleString("pt-BR")}
+                      {dataConsulta && new Date(dataConsulta).toLocaleDateString("pt-BR")} - {periodoConsulta === "MANHA" ? "Manhã" : "Tarde"}
                     </p>
                   </div>
                   {observacoes && (
@@ -374,18 +399,19 @@ const WizardConsulta = ({
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between">
+          <div className="flex flex-col sm:flex-row justify-between gap-3">
             <Button
               variant="outline"
               onClick={handlePrevious}
               disabled={currentStep === 1}
+              className="w-full sm:w-auto"
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
               Anterior
             </Button>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               {currentStep < 4 ? (
@@ -394,14 +420,15 @@ const WizardConsulta = ({
                   disabled={
                     (currentStep === 1 && !procedimento) ||
                     (currentStep === 2 && !clinica) ||
-                    (currentStep === 3 && !dataHorario)
+                    (currentStep === 3 && (!dataConsulta || !periodoConsulta))
                   }
+                  className="w-full sm:w-auto"
                 >
                   Próximo
                   <ChevronRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} disabled={loading}>
+                <Button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto">
                   {loading ? "Enviando..." : "Confirmar Solicitação"}
                 </Button>
               )}
