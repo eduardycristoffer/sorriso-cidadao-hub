@@ -1,66 +1,116 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lock, Eye } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Procedures = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [categories, setCategories] = useState([]);
+  const [procedures, setProcedures] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = [
-    { id: "all", name: "Todos", icon: "🦷" },
-    { id: "dentistica", name: "Dentística", icon: "⚕️" },
-    { id: "endodontia", name: "Endodontia", icon: "🔧" },
-    { id: "cirurgia", name: "Cirurgia", icon: "✂️" },
-    { id: "periodontia", name: "Periodontia", icon: "🪥" },
-    { id: "clareamento", name: "Clareamento", icon: "✨" },
-    { id: "protese", name: "Prótese", icon: "👑" }
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const procedures = [
-    { category: "dentistica", name: "Classe I", discount: "40%", popularity: "Muito procurado" },
-    { category: "dentistica", name: "Classe II", discount: "39%", popularity: "Popular" },
-    { category: "dentistica", name: "Reconstrução", discount: "50%", popularity: "Muito procurado" },
-    { category: "endodontia", name: "Unirradicular", discount: "40%", popularity: "Popular" },
-    { category: "endodontia", name: "Birradicular", discount: "41%", popularity: "Popular" },
-    { category: "endodontia", name: "Trirradicular", discount: "35%", popularity: "Procurado" },
-    { category: "cirurgia", name: "Exo simples", discount: "40%", popularity: "Muito procurado" },
-    { category: "cirurgia", name: "Exo raiz", discount: "25%", popularity: "Popular" },
-    { category: "cirurgia", name: "Exo 3º molar", discount: "58%", popularity: "Muito procurado" },
-    { category: "periodontia", name: "Profilaxia", discount: "44%", popularity: "Muito procurado" },
-    { category: "periodontia", name: "Raspagem", discount: "50%", popularity: "Popular" },
-    { category: "periodontia", name: "Raspagem moderada", discount: "50%", popularity: "Procurado" },
-    { category: "periodontia", name: "Raspagem severa", discount: "33%", popularity: "Procurado" },
-    { category: "clareamento", name: "Clareamento caseiro", discount: "50%", popularity: "Muito procurado" },
-    { category: "clareamento", name: "Clareamento consultório", discount: "48%", popularity: "Popular" },
-    { category: "protese", name: "Prótese Total", discount: "50%", popularity: "Popular" },
-    { category: "protese", name: "PPR com Grampo", discount: "47%", popularity: "Procurado" },
-    { category: "protese", name: "Prótese flexível", discount: "48%", popularity: "Procurado" },
-    { category: "protese", name: "Pino", discount: "38%", popularity: "Popular" },
-    { category: "protese", name: "Coroa artglass", discount: "52%", popularity: "Popular" },
-    { category: "protese", name: "Coroa porcelana", discount: "50%", popularity: "Muito procurado" },
-    { category: "protese", name: "E-MAXX", discount: "44%", popularity: "Procurado" }
-  ];
+  const loadData = async () => {
+    try {
+      // Carregar categorias
+      const { data: categoriesData } = await supabase
+        .from("categorias")
+        .select("*")
+        .order("ordem");
+
+      // Carregar procedimentos com categoria
+      const { data: proceduresData } = await supabase
+        .from("procedimentos")
+        .select(`
+          *,
+          categorias(nome, icone)
+        `)
+        .eq("ativo", true);
+
+      if (categoriesData) {
+        const allCategories = [
+          { id: "all", name: "Todos", icon: "🦷" },
+          ...categoriesData.map(cat => ({
+            id: cat.id,
+            name: cat.nome,
+            icon: getIconEmoji(cat.icone)
+          }))
+        ];
+        setCategories(allCategories);
+      }
+
+      if (proceduresData) {
+        const formattedProcedures = proceduresData.map(proc => ({
+          id: proc.id,
+          category: proc.categoria_id,
+          name: proc.nome,
+          preco_min: proc.preco_min,
+          preco_max: proc.preco_max,
+          categoria_nome: proc.categorias?.nome,
+          discount: calculateDiscount(proc.preco_min, proc.preco_max),
+          popularity: getPopularity(proc.nome)
+        }));
+        setProcedures(formattedProcedures);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getIconEmoji = (iconName: string) => {
+    const iconMap = {
+      'tooth': '🦷',
+      'drill': '🦷',
+      'scissors': '🦷', 
+      'brush': '🦷',
+      'sparkles': '✨',
+      'crown': '👑',
+      'stethoscope': '🩺'
+    };
+    return iconMap[iconName] || '🦷';
+  };
+
+  const calculateDiscount = (preco_min: number, preco_max: number) => {
+    // Simular desconto baseado no preço
+    const avgPrice = preco_max ? (preco_min + preco_max) / 2 : preco_min;
+    if (avgPrice <= 150) return "40%";
+    if (avgPrice <= 300) return "45%";
+    if (avgPrice <= 600) return "50%";
+    return "55%";
+  };
+
+  const getPopularity = (name: string) => {
+    // Simular popularidade baseada no nome do procedimento
+    const highDemand = ['Classe I', 'Profilaxia', 'Exo simples', 'Clareamento'];
+    const popular = ['Classe II', 'Raspagem', 'Unirradicular'];
+    
+    if (highDemand.some(item => name.includes(item))) return "Muito procurado";
+    if (popular.some(item => name.includes(item))) return "Popular";
+    return "Procurado";
+  };
 
   const filteredProcedures = selectedCategory === "all" 
     ? procedures 
     : procedures.filter(p => p.category === selectedCategory);
 
+  const formatPrice = (proc: any) => {
+    if (proc.preco_max && proc.preco_max !== proc.preco_min) {
+      return `R$ ${proc.preco_min?.toFixed(2)} – R$ ${proc.preco_max?.toFixed(2)}`;
+    }
+    return `R$ ${proc.preco_min?.toFixed(2)}`;
+  };
+
   const handleCheckout = () => {
     window.open("https://checkout.sorrisocidadao.com/VCCL1O8SCA33", "_blank");
   };
 
-  const getProcedureIcon = (category: string) => {
-    const icons = {
-      dentistica: "⚕️",
-      endodontia: "🔧", 
-      cirurgia: "✂️",
-      periodontia: "🪥",
-      clareamento: "✨",
-      protese: "👑"
-    };
-    return icons[category as keyof typeof icons] || "🦷";
-  };
 
   const getPopularityColor = (popularity: string) => {
     switch(popularity) {
@@ -111,60 +161,62 @@ export const Procedures = () => {
 
         {/* Procedures Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
-          {filteredProcedures.map((procedure, index) => (
-            <Card key={index} className="group hover:shadow-card-hover transition-all duration-300 hover:scale-[1.02]">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{getProcedureIcon(procedure.category)}</span>
-                    <CardTitle className="text-base md:text-lg leading-tight">{procedure.name}</CardTitle>
-                  </div>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs px-2 py-1 ${getPopularityColor(procedure.popularity)}`}
-                  >
-                    {procedure.popularity}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Blurred Price Section */}
-                <div className="relative">
-                  <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg p-4 backdrop-blur-sm border border-dashed border-muted-foreground/30">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground font-medium">Valor exclusivo</span>
+          {loading ? (
+            <div className="col-span-full text-center py-8">Carregando procedimentos...</div>
+          ) : filteredProcedures.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-muted-foreground">Nenhum procedimento encontrado</div>
+          ) : (
+            filteredProcedures.map((procedure, index) => (
+              <Card key={procedure.id || index} className="group hover:shadow-card-hover transition-all duration-300 hover:scale-[1.02]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base md:text-lg leading-tight">{procedure.name}</CardTitle>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg md:text-xl font-bold text-muted-foreground blur-sm select-none">
-                        R$ •••,••
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Disponível apenas para portadores
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Discount Badge */}
-                  <div className="absolute -top-2 -right-2">
-                    <Badge variant="destructive" className="text-sm md:text-base font-bold px-2 md:px-3 py-1 shadow-lg">
-                      -{procedure.discount}
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs px-2 py-1 ${getPopularityColor(procedure.popularity)}`}
+                    >
+                      {procedure.popularity}
                     </Badge>
                   </div>
-                </div>
+                  <div className="text-sm text-muted-foreground">{procedure.categoria_nome}</div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Price Display */}
+                  <div className="relative">
+                    <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 border border-primary/20">
+                      <div className="text-center">
+                        <div className="text-lg md:text-xl font-bold text-primary">
+                          {formatPrice(procedure)}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Valor exclusivo para portadores
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Discount Badge */}
+                    <div className="absolute -top-2 -right-2">
+                      <Badge variant="destructive" className="text-sm md:text-base font-bold px-2 md:px-3 py-1 shadow-lg">
+                        -{procedure.discount}
+                      </Badge>
+                    </div>
+                  </div>
 
-                <Button 
-                  variant="primary_cta" 
-                  size="sm" 
-                  className="w-full text-xs md:text-sm"
-                  onClick={handleCheckout}
-                >
-                  <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                  Ver valor com cartão
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button 
+                    variant="primary_cta" 
+                    size="sm" 
+                    className="w-full text-xs md:text-sm"
+                    onClick={handleCheckout}
+                  >
+                    <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                    Solicitar
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Main CTA Section */}

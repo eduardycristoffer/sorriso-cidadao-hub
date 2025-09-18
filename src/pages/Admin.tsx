@@ -22,6 +22,9 @@ const Admin = () => {
   // Estados para dados do painel
   const [usuarios, setUsuarios] = useState([]);
   const [ordensServico, setOrdensServico] = useState([]);
+  const [procedimentos, setProcedimentos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [editingProcedure, setEditingProcedure] = useState(null);
   const [stats, setStats] = useState({
     totalUsuarios: 0,
     assinaturasAtivas: 0,
@@ -168,8 +171,24 @@ const Admin = () => {
         `)
         .order("created_at", { ascending: false });
 
+      // Carregar procedimentos e categorias
+      const { data: procedimentosData } = await supabase
+        .from("procedimentos")
+        .select(`
+          *,
+          categorias(nome)
+        `)
+        .order("nome");
+
+      const { data: categoriasData } = await supabase
+        .from("categorias")
+        .select("*")
+        .order("ordem");
+
       setUsuarios(usuariosData || []);
       setOrdensServico(ordensData || []);
+      setProcedimentos(procedimentosData || []);
+      setCategorias(categoriasData || []);
 
       // Calcular estatísticas
       const totalUsuarios = usuariosData?.length || 0;
@@ -215,6 +234,35 @@ const Admin = () => {
     
     const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+  };
+
+  const handleUpdateProcedure = async (procedureId: string, newData: any) => {
+    try {
+      const { error } = await supabase
+        .from("procedimentos")
+        .update({
+          preco_min: parseFloat(newData.preco_min),
+          preco_max: newData.preco_max ? parseFloat(newData.preco_max) : null
+        })
+        .eq("id", procedureId);
+
+      if (error) throw error;
+
+      // Recarregar dados
+      loadDashboardData();
+      setEditingProcedure(null);
+      
+      toast({
+        title: "Sucesso",
+        description: "Procedimento atualizado com sucesso!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -355,7 +403,7 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
@@ -367,6 +415,10 @@ const Admin = () => {
             <TabsTrigger value="ordens">
               <FileText className="h-4 w-4 mr-2" />
               Ordens de Serviço
+            </TabsTrigger>
+            <TabsTrigger value="procedimentos">
+              <Calendar className="h-4 w-4 mr-2" />
+              Procedimentos
             </TabsTrigger>
             <TabsTrigger value="configuracoes">
               <Settings className="h-4 w-4 mr-2" />
@@ -500,6 +552,108 @@ const Admin = () => {
                         </TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+           </TabsContent>
+
+          {/* Procedimentos */}
+          <TabsContent value="procedimentos" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gerenciar Procedimentos</CardTitle>
+                <CardDescription>
+                  Atualizar valores dos procedimentos - as alterações serão aplicadas automaticamente para todos os clientes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Procedimento</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Preço Mínimo</TableHead>
+                      <TableHead>Preço Máximo</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {procedimentos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          Nenhum procedimento encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      procedimentos.map((proc: any) => (
+                        <TableRow key={proc.id}>
+                          <TableCell className="font-medium">{proc.nome}</TableCell>
+                          <TableCell>{proc.categorias?.nome}</TableCell>
+                          <TableCell>
+                            {editingProcedure === proc.id ? (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                defaultValue={proc.preco_min}
+                                className="w-24"
+                                id={`min-${proc.id}`}
+                              />
+                            ) : (
+                              `R$ ${proc.preco_min?.toFixed(2)}`
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingProcedure === proc.id ? (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                defaultValue={proc.preco_max || ''}
+                                className="w-24"
+                                id={`max-${proc.id}`}
+                                placeholder="Opcional"
+                              />
+                            ) : (
+                              proc.preco_max ? `R$ ${proc.preco_max?.toFixed(2)}` : '-'
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingProcedure === proc.id ? (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const minInput = document.getElementById(`min-${proc.id}`) as HTMLInputElement;
+                                    const maxInput = document.getElementById(`max-${proc.id}`) as HTMLInputElement;
+                                    handleUpdateProcedure(proc.id, {
+                                      preco_min: minInput.value,
+                                      preco_max: maxInput.value || null
+                                    });
+                                  }}
+                                >
+                                  Salvar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingProcedure(null)}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingProcedure(proc.id)}
+                              >
+                                Editar
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
