@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -9,11 +10,12 @@ export const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8">
           {/* Logo and Description */}
           <div className="md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-                <span className="text-lg font-bold text-secondary-foreground">😊</span>
-              </div>
-              <span className="text-xl font-bold">Sorriso Cidadão</span>
+            <div className="flex items-center space-x-3 mb-4">
+              <img 
+                src={logoSorrisoCidadao} 
+                alt="Sorriso Cidadão" 
+                className="h-8 w-auto brightness-0 invert"
+              />
             </div>
             <p className="text-primary-foreground/80 mb-4 max-w-md">
               Democratizando o acesso à saúde bucal de qualidade através de descontos especiais 
