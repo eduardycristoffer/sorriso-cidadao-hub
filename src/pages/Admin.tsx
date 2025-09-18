@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart } from "lucide-react";
-import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Tooltip, Legend, Pie } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -673,73 +672,93 @@ const Admin = () => {
                   <CardDescription>Distribuição por status</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={[
-                            { name: 'Realizadas', value: stats.ordensRealizadas, color: '#10b981' },
-                            { name: 'Confirmadas', value: stats.ordensConfirmadas, color: '#3b82f6' },
-                            { name: 'Pendentes', value: stats.ordensPendentes, color: '#f59e0b' },
-                            { name: 'Em Análise', value: stats.ordensEmAnalise, color: '#f97316' },
-                            { name: 'Canceladas', value: stats.ordensCanceladas, color: '#ef4444' }
-                          ]}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {[
-                            { name: 'Realizadas', value: stats.ordensRealizadas, color: '#10b981' },
-                            { name: 'Confirmadas', value: stats.ordensConfirmadas, color: '#3b82f6' },
-                            { name: 'Pendentes', value: stats.ordensPendentes, color: '#f59e0b' },
-                            { name: 'Em Análise', value: stats.ordensEmAnalise, color: '#f97316' },
-                            { name: 'Canceladas', value: stats.ordensCanceladas, color: '#ef4444' }
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{stats.ordensRealizadas}</div>
+                        <div className="text-sm text-muted-foreground">Realizadas</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{stats.ordensConfirmadas}</div>
+                        <div className="text-sm text-muted-foreground">Confirmadas</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">{stats.ordensEmAnalise}</div>
+                        <div className="text-sm text-muted-foreground">Em Análise</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-yellow-600">{stats.ordensPendentes}</div>
+                        <div className="text-sm text-muted-foreground">Pendentes</div>
+                      </div>
+                    </div>
+                    <div className="text-center border-t pt-4">
+                      <div className="text-2xl font-bold text-red-600">{stats.ordensCanceladas}</div>
+                      <div className="text-sm text-muted-foreground">Canceladas</div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>Assinaturas</CardTitle>
-                  <CardDescription>Status das assinaturas</CardDescription>
+                  <CardTitle>Resumo de Status</CardTitle>
+                  <CardDescription>Barras de progresso por categoria</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={[
-                            { name: 'Ativas', value: stats.assinaturasAtivas, color: '#10b981' },
-                            { name: 'Inativas', value: stats.totalUsuarios - stats.assinaturasAtivas, color: '#ef4444' }
-                          ]}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {[
-                            { name: 'Ativas', value: stats.assinaturasAtivas, color: '#10b981' },
-                            { name: 'Inativas', value: stats.totalUsuarios - stats.assinaturasAtivas, color: '#ef4444' }
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Realizadas</span>
+                      <span className="font-bold text-green-600">{stats.ordensRealizadas}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.ordensServico > 0 ? (stats.ordensRealizadas / stats.ordensServico) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Confirmadas</span>
+                      <span className="font-bold text-blue-600">{stats.ordensConfirmadas}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.ordensServico > 0 ? (stats.ordensConfirmadas / stats.ordensServico) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Pendentes</span>
+                      <span className="font-bold text-yellow-600">{stats.ordensPendentes}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-yellow-500 h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.ordensServico > 0 ? (stats.ordensPendentes / stats.ordensServico) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Canceladas</span>
+                      <span className="font-bold text-red-600">{stats.ordensCanceladas}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-red-500 h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.ordensServico > 0 ? (stats.ordensCanceladas / stats.ordensServico) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
