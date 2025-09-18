@@ -29,25 +29,25 @@ export const Hero = () => {
             </Badge>
 
             {/* Headlines */}
-            <div className="space-y-4">
-              <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight">
+            <div className="space-y-3 md:space-y-4">
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white leading-tight">
                 Tenha acesso à 
                 <span className="text-secondary"> saúde bucal</span>
                 {" "}com qualidade e economia
               </h1>
-              <p className="text-xl text-white/90 max-w-2xl">
+              <p className="text-lg md:text-xl text-white/90 max-w-2xl">
                 Mais de 15 mil pessoas já economizam em procedimentos odontológicos 
                 com o Cartão Sorriso Cidadão
               </p>
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center lg:justify-start">
               <Button 
                 variant="hero" 
                 size="xl"
                 onClick={handleCheckout}
-                className="text-xl px-10 py-4"
+                className="text-lg md:text-xl px-8 md:px-10 py-3 md:py-4"
               >
                 Assinar agora
               </Button>
@@ -55,27 +55,27 @@ export const Hero = () => {
                 variant="outline" 
                 size="xl"
                 onClick={scrollToProcedimentos}
-                className="text-xl px-10 py-4 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                className="text-lg md:text-xl px-8 md:px-10 py-3 md:py-4 bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Ver procedimentos
               </Button>
             </div>
 
             {/* Pricing Info */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20">
               <div className="text-center lg:text-left">
-                <p className="text-white/80 mb-2">Parcelamento em até:</p>
-                <div className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start">
-                  <div className="text-white">
-                    <span className="text-3xl font-bold">12x R$ 7,39</span>
-                    <span className="text-white/80 ml-2">no cartão</span>
+                <p className="text-white/80 mb-2 text-sm md:text-base">Parcelamento em até:</p>
+                <div className="flex flex-col sm:flex-row gap-3 md:gap-4 items-center justify-center lg:justify-start">
+                  <div className="text-white text-center">
+                    <span className="text-2xl md:text-3xl font-bold">12x R$ 7,39</span>
+                    <span className="text-white/80 ml-2 text-sm md:text-base">no cartão</span>
                   </div>
                   <div className="text-center">
                     <span className="text-white/80 text-sm">ou</span>
                   </div>
-                  <div className="text-white">
-                    <span className="text-2xl font-semibold">R$ 88,68</span>
-                    <span className="text-white/80 ml-2">à vista</span>
+                  <div className="text-white text-center">
+                    <span className="text-xl md:text-2xl font-semibold">R$ 88,68</span>
+                    <span className="text-white/80 ml-2 text-sm md:text-base">à vista</span>
                   </div>
                 </div>
               </div>

@@ -37,7 +37,7 @@ export const Header = () => {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
+        <nav className="hidden lg:flex items-center space-x-6">
           {menuItems.map((item) => (
             <button
               key={item.href}
@@ -50,18 +50,18 @@ export const Header = () => {
         </nav>
 
         {/* Desktop CTAs */}
-        <div className="hidden md:flex items-center space-x-3">
-          <Button variant="ghost" asChild>
+        <div className="hidden lg:flex items-center space-x-3">
+          <Button variant="ghost" asChild size="sm">
             <a href="/entrar">Entrar</a>
           </Button>
-          <Button variant="hero" onClick={handleCheckout}>
+          <Button variant="hero" onClick={handleCheckout} size="sm">
             Assinar agora
           </Button>
         </div>
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden"
+          className="lg:hidden"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label="Toggle menu"
         >
@@ -71,7 +71,7 @@ export const Header = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden border-t bg-background">
+        <div className="lg:hidden border-t bg-background">
           <div className="container py-4 space-y-4">
             <nav className="flex flex-col space-y-3">
               {menuItems.map((item) => (

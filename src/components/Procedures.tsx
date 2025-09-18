@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { Lock, Eye } from "lucide-react";
 
 export const Procedures = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -17,104 +18,222 @@ export const Procedures = () => {
   ];
 
   const procedures = [
-    { category: "dentistica", name: "Classe I", price: "R$ 90,00", originalPrice: "R$ 150,00" },
-    { category: "dentistica", name: "Classe II", price: "R$ 110,00", originalPrice: "R$ 180,00" },
-    { category: "dentistica", name: "Reconstrução", price: "R$ 150,00 - R$ 200,00", originalPrice: "R$ 300,00" },
-    { category: "endodontia", name: "Unirradicular", price: "R$ 450,00", originalPrice: "R$ 750,00" },
-    { category: "endodontia", name: "Birradicular", price: "R$ 500,00", originalPrice: "R$ 850,00" },
-    { category: "cirurgia", name: "Exo simples", price: "R$ 120,00", originalPrice: "R$ 200,00" },
-    { category: "cirurgia", name: "Exo 3º molar", price: "R$ 250,00 - R$ 350,00", originalPrice: "R$ 600,00" },
-    { category: "periodontia", name: "Profilaxia", price: "R$ 100,00", originalPrice: "R$ 180,00" },
-    { category: "periodontia", name: "Raspagem", price: "R$ 150,00", originalPrice: "R$ 300,00" },
-    { category: "clareamento", name: "Clareamento caseiro", price: "R$ 600,00", originalPrice: "R$ 1.200,00" },
-    { category: "clareamento", name: "Clareamento consultório", price: "R$ 1.300,00", originalPrice: "R$ 2.500,00" },
-    { category: "protese", name: "Prótese Total", price: "R$ 750,00", originalPrice: "R$ 1.500,00" },
-    { category: "protese", name: "Coroa porcelana", price: "R$ 1.100,00", originalPrice: "R$ 2.200,00" }
+    { category: "dentistica", name: "Classe I", discount: "40%", popularity: "Muito procurado" },
+    { category: "dentistica", name: "Classe II", discount: "39%", popularity: "Popular" },
+    { category: "dentistica", name: "Reconstrução", discount: "50%", popularity: "Muito procurado" },
+    { category: "endodontia", name: "Unirradicular", discount: "40%", popularity: "Popular" },
+    { category: "endodontia", name: "Birradicular", discount: "41%", popularity: "Popular" },
+    { category: "endodontia", name: "Trirradicular", discount: "35%", popularity: "Procurado" },
+    { category: "cirurgia", name: "Exo simples", discount: "40%", popularity: "Muito procurado" },
+    { category: "cirurgia", name: "Exo raiz", discount: "25%", popularity: "Popular" },
+    { category: "cirurgia", name: "Exo 3º molar", discount: "58%", popularity: "Muito procurado" },
+    { category: "periodontia", name: "Profilaxia", discount: "44%", popularity: "Muito procurado" },
+    { category: "periodontia", name: "Raspagem", discount: "50%", popularity: "Popular" },
+    { category: "periodontia", name: "Raspagem moderada", discount: "50%", popularity: "Procurado" },
+    { category: "periodontia", name: "Raspagem severa", discount: "33%", popularity: "Procurado" },
+    { category: "clareamento", name: "Clareamento caseiro", discount: "50%", popularity: "Muito procurado" },
+    { category: "clareamento", name: "Clareamento consultório", discount: "48%", popularity: "Popular" },
+    { category: "protese", name: "Prótese Total", discount: "50%", popularity: "Popular" },
+    { category: "protese", name: "PPR com Grampo", discount: "47%", popularity: "Procurado" },
+    { category: "protese", name: "Prótese flexível", discount: "48%", popularity: "Procurado" },
+    { category: "protese", name: "Pino", discount: "38%", popularity: "Popular" },
+    { category: "protese", name: "Coroa artglass", discount: "52%", popularity: "Popular" },
+    { category: "protese", name: "Coroa porcelana", discount: "50%", popularity: "Muito procurado" },
+    { category: "protese", name: "E-MAXX", discount: "44%", popularity: "Procurado" }
   ];
 
   const filteredProcedures = selectedCategory === "all" 
     ? procedures 
     : procedures.filter(p => p.category === selectedCategory);
 
-  const scrollToLogin = () => {
-    window.location.href = "/entrar";
+  const handleCheckout = () => {
+    window.open("https://checkout-externo.com", "_blank");
+  };
+
+  const getProcedureIcon = (category: string) => {
+    const icons = {
+      dentistica: "⚕️",
+      endodontia: "🔧", 
+      cirurgia: "✂️",
+      periodontia: "🪥",
+      clareamento: "✨",
+      protese: "👑"
+    };
+    return icons[category as keyof typeof icons] || "🦷";
+  };
+
+  const getPopularityColor = (popularity: string) => {
+    switch(popularity) {
+      case "Muito procurado": return "bg-success text-success-foreground";
+      case "Popular": return "bg-secondary text-secondary-foreground";
+      default: return "bg-muted text-muted-foreground";
+    }
   };
 
   return (
-    <section id="procedimentos" className="py-20 bg-background">
-      <div className="container">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-foreground mb-4">
-            Procedimentos e Valores
+    <section id="procedimentos" className="py-12 md:py-20 bg-background">
+      <div className="container px-4">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3 md:mb-4">
+            Procedimentos Disponíveis
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Confira alguns dos nossos procedimentos com descontos de até 60%
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-4">
+            Veja alguns dos procedimentos com descontos exclusivos para portadores do cartão
           </p>
-          <Badge variant="secondary" className="mt-4 text-lg px-4 py-2">
-            💰 Economia garantida
-          </Badge>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+            <Badge variant="secondary" className="text-base md:text-lg px-4 py-2">
+              💰 Até 60% de desconto
+            </Badge>
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              <Lock className="h-3 w-3 mr-1" />
+              Valores exclusivos para portadores
+            </Badge>
+          </div>
         </div>
 
-        {/* Category Filters */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              onClick={() => setSelectedCategory(category.id)}
-              className="gap-2"
-            >
-              <span>{category.icon}</span>
-              {category.name}
-            </Button>
-          ))}
+        {/* Category Filters - Mobile Scrollable */}
+        <div className="mb-8 md:mb-12">
+          <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 md:justify-center scrollbar-hide">
+            {categories.map((category) => (
+              <Button
+                key={category.id}
+                variant={selectedCategory === category.id ? "default" : "outline"}
+                onClick={() => setSelectedCategory(category.id)}
+                className="gap-2 flex-shrink-0 text-xs md:text-sm px-3 md:px-4 py-2"
+                size="sm"
+              >
+                <span className="text-sm md:text-base">{category.icon}</span>
+                <span className="whitespace-nowrap">{category.name}</span>
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Procedures Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
           {filteredProcedures.map((procedure, index) => (
-            <Card key={index} className="group hover:shadow-card-hover transition-all duration-300 hover:scale-105">
+            <Card key={index} className="group hover:shadow-card-hover transition-all duration-300 hover:scale-[1.02]">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">{procedure.name}</CardTitle>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{getProcedureIcon(procedure.category)}</span>
+                    <CardTitle className="text-base md:text-lg leading-tight">{procedure.name}</CardTitle>
+                  </div>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs px-2 py-1 ${getPopularityColor(procedure.popularity)}`}
+                  >
+                    {procedure.popularity}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground line-through">
-                      {procedure.originalPrice}
-                    </span>
-                    <Badge variant="destructive" className="text-xs">
-                      ATÉ 60% OFF
+              <CardContent className="space-y-3">
+                {/* Blurred Price Section */}
+                <div className="relative">
+                  <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg p-4 backdrop-blur-sm border border-dashed border-muted-foreground/30">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground font-medium">Valor exclusivo</span>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg md:text-xl font-bold text-muted-foreground blur-sm select-none">
+                        R$ •••,••
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Disponível apenas para portadores
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Discount Badge */}
+                  <div className="absolute -top-2 -right-2">
+                    <Badge variant="destructive" className="text-sm md:text-base font-bold px-2 md:px-3 py-1 shadow-lg">
+                      -{procedure.discount}
                     </Badge>
                   </div>
-                  <div className="text-2xl font-bold text-success">
-                    {procedure.price}
-                  </div>
-                  <Button 
-                    variant="primary_cta" 
-                    size="sm" 
-                    className="w-full mt-3"
-                    onClick={scrollToLogin}
-                  >
-                    Agendar consulta
-                  </Button>
                 </div>
+
+                <Button 
+                  variant="primary_cta" 
+                  size="sm" 
+                  className="w-full text-xs md:text-sm"
+                  onClick={handleCheckout}
+                >
+                  <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                  Ver valor com cartão
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Call to Action */}
-        <div className="text-center bg-gradient-card rounded-2xl p-8 border">
-          <h3 className="text-2xl font-bold text-foreground mb-4">
-            Quer ver a tabela completa de preços?
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Faça login para acessar todos os procedimentos e valores especiais
-          </p>
-          <Button variant="hero" size="lg" onClick={scrollToLogin}>
-            Entrar na minha conta
-          </Button>
+        {/* Main CTA Section */}
+        <div className="bg-gradient-hero rounded-2xl p-6 md:p-8 text-center text-white">
+          <div className="max-w-3xl mx-auto">
+            <h3 className="text-2xl md:text-3xl font-bold mb-3 md:mb-4">
+              Quer ver todos os valores?
+            </h3>
+            <p className="text-base md:text-lg text-white/90 mb-6 md:mb-8">
+              Assine o Cartão Sorriso Cidadão e tenha acesso à tabela completa de preços 
+              com descontos de até 60% em mais de 100 procedimentos
+            </p>
+            
+            {/* Benefits Icons */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-8">
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-white/20 rounded-full p-3 mb-2">
+                  <span className="text-xl md:text-2xl">💰</span>
+                </div>
+                <span className="text-xs md:text-sm">Até 60% OFF</span>
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-white/20 rounded-full p-3 mb-2">
+                  <span className="text-xl md:text-2xl">🏥</span>
+                </div>
+                <span className="text-xs md:text-sm">100+ Clínicas</span>
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-white/20 rounded-full p-3 mb-2">
+                  <span className="text-xl md:text-2xl">⚡</span>
+                </div>
+                <span className="text-xs md:text-sm">Sem carência</span>
+              </div>
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-white/20 rounded-full p-3 mb-2">
+                  <span className="text-xl md:text-2xl">💳</span>
+                </div>
+                <span className="text-xs md:text-sm">12x no cartão</span>
+              </div>
+            </div>
+
+            {/* Pricing */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20 mb-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                <div className="text-center">
+                  <div className="text-2xl md:text-3xl font-bold">12x R$ 7,39</div>
+                  <div className="text-sm text-white/80">no cartão</div>
+                </div>
+                <div className="text-white/60 text-sm">ou</div>
+                <div className="text-center">
+                  <div className="text-xl md:text-2xl font-semibold">R$ 88,68</div>
+                  <div className="text-sm text-white/80">à vista</div>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              variant="hero" 
+              size="xl"
+              onClick={handleCheckout}
+              className="w-full sm:w-auto text-base md:text-lg px-8 md:px-12 py-3 md:py-4 bg-secondary hover:bg-secondary-hover text-secondary-foreground font-bold"
+            >
+              Assinar Cartão Agora
+            </Button>
+            
+            <p className="text-xs md:text-sm text-white/70 mt-3">
+              Ativação imediata • Sem taxa de adesão • Sem fidelidade
+            </p>
+          </div>
         </div>
       </div>
     </section>
