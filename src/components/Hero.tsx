@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import cartaoHero from "@/assets/cartao-hero.jpg";
+import cartaoHero from "@/assets/cartao-hero.png";
 
 export const Hero = () => {
   const handleCheckout = () => {
