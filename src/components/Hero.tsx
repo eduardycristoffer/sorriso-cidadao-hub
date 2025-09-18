@@ -67,14 +67,14 @@ export const Hero = () => {
                 <p className="text-white/80 mb-2 text-sm md:text-base">Parcelamento em até:</p>
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4 items-center justify-center lg:justify-start">
                   <div className="text-white text-center">
-                    <span className="text-2xl md:text-3xl font-bold">12x R$ 7,39</span>
+                    <span className="text-2xl md:text-3xl font-bold">12x R$ 4,99</span>
                     <span className="text-white/80 ml-2 text-sm md:text-base">no cartão</span>
                   </div>
                   <div className="text-center">
                     <span className="text-white/80 text-sm">ou</span>
                   </div>
                   <div className="text-white text-center">
-                    <span className="text-xl md:text-2xl font-semibold">R$ 88,68</span>
+                    <span className="text-xl md:text-2xl font-semibold">R$ 59,90</span>
                     <span className="text-white/80 ml-2 text-sm md:text-base">à vista</span>
                   </div>
                 </div>

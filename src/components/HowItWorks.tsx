@@ -75,7 +75,7 @@ export const HowItWorks = () => {
               onClick={handleCheckout}
               className="bg-secondary hover:bg-secondary-hover text-secondary-foreground"
             >
-              Assinar agora por R$ 88,68
+              Assinar agora por R$ 59,90
             </Button>
           </div>
         </div>

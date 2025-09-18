@@ -210,12 +210,12 @@ export const Procedures = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20 mb-6">
               <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl md:text-3xl font-bold">12x R$ 7,39</div>
+                  <div className="text-2xl md:text-3xl font-bold">12x R$ 4,99</div>
                   <div className="text-sm text-white/80">no cartão</div>
                 </div>
                 <div className="text-white/60 text-sm">ou</div>
                 <div className="text-center">
-                  <div className="text-xl md:text-2xl font-semibold">R$ 88,68</div>
+                  <div className="text-xl md:text-2xl font-semibold">R$ 59,90</div>
                   <div className="text-sm text-white/80">à vista</div>
                 </div>
               </div>
@@ -227,7 +227,7 @@ export const Procedures = () => {
               onClick={handleCheckout}
               className="w-full sm:w-auto text-base md:text-lg px-8 md:px-12 py-3 md:py-4 bg-secondary hover:bg-secondary-hover text-secondary-foreground font-bold"
             >
-              Assinar Cartão Agora
+              Assinar Cartão por R$ 59,90
             </Button>
             
             <p className="text-xs md:text-sm text-white/70 mt-3">
