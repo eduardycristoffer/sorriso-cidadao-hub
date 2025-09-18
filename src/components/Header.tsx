@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,11 +30,12 @@ export const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
-            <span className="text-lg font-bold text-white">😊</span>
-          </div>
-          <span className="text-xl font-bold text-primary">Sorriso Cidadão</span>
+        <div className="flex items-center space-x-3">
+          <img 
+            src={logoSorrisoCidadao} 
+            alt="Sorriso Cidadão" 
+            className="h-8 w-auto"
+          />
         </div>
 
         {/* Desktop Navigation */}
