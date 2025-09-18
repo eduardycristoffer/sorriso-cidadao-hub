@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, Lock, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -136,11 +137,12 @@ const Auth = () => {
             </a>
           </Button>
           
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-              <span className="text-xl font-bold text-secondary-foreground">😊</span>
-            </div>
-            <span className="text-2xl font-bold text-white">Sorriso Cidadão</span>
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <img 
+              src={logoSorrisoCidadao} 
+              alt="Sorriso Cidadão" 
+              className="h-12 w-auto brightness-0 invert"
+            />
           </div>
           <p className="text-white/90">
             Acesse sua área do cliente
