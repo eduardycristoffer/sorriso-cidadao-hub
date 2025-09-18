@@ -7,15 +7,19 @@ const corsHeaders = {
 };
 
 interface CheckoutWebhookData {
-  order_id: string;
+  transaction_token?: string;
+  order_id?: string;
   status: 'approved' | 'pending' | 'cancelled' | 'failed';
   customer: {
     name: string;
     email: string;
-    cpf: string;
+    document?: string;
+    cpf?: string;
     phone?: string;
   };
+  total_price?: number;
   amount?: number;
+  method?: string;
   payment_method?: string;
   transaction_id?: string;
 }
@@ -43,16 +47,22 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
 
+    // Definir order_id baseado nos dados recebidos
+    const orderId = webhookData.order_id || webhookData.transaction_token;
+    
     // Validar dados obrigatórios
-    if (!webhookData.order_id || !webhookData.customer?.email || !webhookData.customer?.name) {
-      throw new Error('Dados obrigatórios faltando: order_id, email ou nome');
+    if (!orderId || !webhookData.customer?.email || !webhookData.customer?.name) {
+      throw new Error('Dados obrigatórios faltando: order_id/transaction_token, email ou nome');
     }
+    
+    // Normalizar CPF
+    const cpf = webhookData.customer.cpf || webhookData.customer.document;
 
     // Registrar evento do webhook
     await supabase
       .from('webhook_events')
       .insert({
-        order_id: webhookData.order_id,
+        order_id: orderId,
         event: `checkout_${webhookData.status}`,
         payload: webhookData,
         status: 'ok'
@@ -79,10 +89,10 @@ const handler = async (req: Request): Promise<Response> => {
         .from('usuarios')
         .update({
           nome: webhookData.customer.name,
-          cpf: webhookData.customer.cpf,
+          cpf: cpf,
           telefone: webhookData.customer.phone,
           assinatura_status: assinaturaStatus,
-          order_id: webhookData.order_id,
+          order_id: orderId,
           updated_at: new Date().toISOString()
         })
         .eq('email', webhookData.customer.email);
@@ -99,11 +109,11 @@ const handler = async (req: Request): Promise<Response> => {
         .insert({
           nome: webhookData.customer.name,
           email: webhookData.customer.email,
-          cpf: webhookData.customer.cpf,
+          cpf: cpf,
           telefone: webhookData.customer.phone,
           role: 'cliente',
           assinatura_status: assinaturaStatus,
-          order_id: webhookData.order_id,
+          order_id: orderId,
           ativo: true
         });
 
@@ -124,10 +134,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     return new Response(
-      JSON.stringify({ 
+        JSON.stringify({ 
         success: true, 
         message: 'Webhook processado com sucesso',
-        order_id: webhookData.order_id,
+        order_id: orderId,
         status: webhookData.status
       }),
       {
@@ -148,7 +158,7 @@ const handler = async (req: Request): Promise<Response> => {
       await supabase
         .from('webhook_events')
         .insert({
-          order_id: errorData?.order_id || 'unknown',
+          order_id: errorData?.order_id || errorData?.transaction_token || 'unknown',
           event: 'webhook_error',
           payload: errorData,
           status: 'error',
