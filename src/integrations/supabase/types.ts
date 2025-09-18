@@ -173,6 +173,7 @@ export type Database = {
           id: string
           observacoes_cliente: string | null
           observacoes_internas: string | null
+          periodo_preferido: string | null
           procedimento_id: string | null
           status: string | null
           updated_at: string | null
@@ -189,6 +190,7 @@ export type Database = {
           id?: string
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
+          periodo_preferido?: string | null
           procedimento_id?: string | null
           status?: string | null
           updated_at?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           id?: string
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
+          periodo_preferido?: string | null
           procedimento_id?: string | null
           status?: string | null
           updated_at?: string | null
