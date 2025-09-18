@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart } from "lucide-react";
+import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Tooltip, Legend, Pie } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -46,7 +47,10 @@ const Admin = () => {
     faturamentoMensal: 0,
     faturamentoLiquido: 0,
     ordensConfirmadas: 0,
-    ordensPendentes: 0
+    ordensPendentes: 0,
+    ordensCanceladas: 0,
+    ordensRealizadas: 0,
+    ordensEmAnalise: 0
   });
 
   useEffect(() => {
@@ -211,8 +215,11 @@ const Admin = () => {
       const totalUsuarios = usuariosData?.length || 0;
       const assinaturasAtivas = usuariosData?.filter(u => u.assinatura_status === 'ATIVA').length || 0;
       const totalOS = ordensData?.length || 0;
-      const ordensConfirmadas = ordensData?.filter(o => o.status === 'confirmada' || o.status === 'realizada').length || 0;
+      const ordensConfirmadas = ordensData?.filter(o => o.status === 'confirmada').length || 0;
       const ordensPendentes = ordensData?.filter(o => o.status === 'solicitada' || o.status === 'em_analise').length || 0;
+      const ordensCanceladas = ordensData?.filter(o => o.status === 'cancelada').length || 0;
+      const ordensRealizadas = ordensData?.filter(o => o.status === 'realizada').length || 0;
+      const ordensEmAnalise = ordensData?.filter(o => o.status === 'em_analise').length || 0;
       const faturamentoMensal = assinaturasAtivas * 59.90;
       const faturamentoLiquido = faturamentoMensal * 0.85; // Considerando 15% de taxas
 
@@ -223,7 +230,10 @@ const Admin = () => {
         faturamentoMensal,
         faturamentoLiquido,
         ordensConfirmadas,
-        ordensPendentes
+        ordensPendentes,
+        ordensCanceladas,
+        ordensRealizadas,
+        ordensEmAnalise
       });
 
     } catch (error) {
@@ -540,7 +550,7 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
@@ -552,6 +562,10 @@ const Admin = () => {
             <TabsTrigger value="ordens">
               <FileText className="h-4 w-4 mr-2" />
               Ordens de Serviço
+            </TabsTrigger>
+            <TabsTrigger value="vendas">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Vendas
             </TabsTrigger>
             <TabsTrigger value="procedimentos">
               <Calendar className="h-4 w-4 mr-2" />
@@ -603,30 +617,130 @@ const Admin = () => {
                 </CardContent>
               </Card>
             </div>
-            
-            <div className="grid gap-4 md:grid-cols-2">
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Faturamento Mensal Bruto</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Realizadas</CardTitle>
+                  <Check className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{stats.ordensRealizadas}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Em Análise</CardTitle>
+                  <Clock className="h-4 w-4 text-orange-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{stats.ordensEmAnalise}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Canceladas</CardTitle>
+                  <X className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{stats.ordensCanceladas}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Faturamento Bruto</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">R$ {stats.faturamentoMensal.toFixed(2)}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.assinaturasAtivas} assinaturas × R$ 59,90
-                  </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Faturamento Líquido</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <DollarSign className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">R$ {stats.faturamentoLiquido.toFixed(2)}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Descontando 15% de taxas
-                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Status das Ordens</CardTitle>
+                  <CardDescription>Distribuição por status</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={[
+                            { name: 'Realizadas', value: stats.ordensRealizadas, color: '#10b981' },
+                            { name: 'Confirmadas', value: stats.ordensConfirmadas, color: '#3b82f6' },
+                            { name: 'Pendentes', value: stats.ordensPendentes, color: '#f59e0b' },
+                            { name: 'Em Análise', value: stats.ordensEmAnalise, color: '#f97316' },
+                            { name: 'Canceladas', value: stats.ordensCanceladas, color: '#ef4444' }
+                          ]}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {[
+                            { name: 'Realizadas', value: stats.ordensRealizadas, color: '#10b981' },
+                            { name: 'Confirmadas', value: stats.ordensConfirmadas, color: '#3b82f6' },
+                            { name: 'Pendentes', value: stats.ordensPendentes, color: '#f59e0b' },
+                            { name: 'Em Análise', value: stats.ordensEmAnalise, color: '#f97316' },
+                            { name: 'Canceladas', value: stats.ordensCanceladas, color: '#ef4444' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assinaturas</CardTitle>
+                  <CardDescription>Status das assinaturas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={[
+                            { name: 'Ativas', value: stats.assinaturasAtivas, color: '#10b981' },
+                            { name: 'Inativas', value: stats.totalUsuarios - stats.assinaturasAtivas, color: '#ef4444' }
+                          ]}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {[
+                            { name: 'Ativas', value: stats.assinaturasAtivas, color: '#10b981' },
+                            { name: 'Inativas', value: stats.totalUsuarios - stats.assinaturasAtivas, color: '#ef4444' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -647,7 +761,9 @@ const Admin = () => {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Telefone</TableHead>
                       <TableHead>CPF</TableHead>
+                      <TableHead>Order ID</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status Assinatura</TableHead>
                       <TableHead>Ativo</TableHead>
@@ -656,62 +772,68 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                    <TableBody>
-                     {usuarios.length === 0 ? (
-                       <TableRow>
-                         <TableCell colSpan={8} className="text-center text-muted-foreground">
-                           Nenhum usuário encontrado
-                         </TableCell>
-                       </TableRow>
-                     ) : (
-                       usuarios.map((usuario: any) => (
-                         <TableRow key={usuario.id}>
-                           <TableCell className="font-medium">{usuario.nome}</TableCell>
-                           <TableCell>{usuario.email}</TableCell>
-                           <TableCell>{usuario.cpf || '-'}</TableCell>
-                           <TableCell>
-                             <Select 
-                               value={usuario.role} 
-                               onValueChange={(value) => handleUpdateUserRole(usuario.id, value)}
-                             >
-                               <SelectTrigger className="w-32">
-                                 <SelectValue />
-                               </SelectTrigger>
-                               <SelectContent>
-                                 <SelectItem value="cliente">Cliente</SelectItem>
-                                 <SelectItem value="admin">Admin</SelectItem>
-                                 <SelectItem value="operador">Operador</SelectItem>
-                               </SelectContent>
-                             </Select>
-                           </TableCell>
-                           <TableCell>
-                             <div className="flex items-center gap-2">
-                               {getAssinaturaStatusBadge(usuario.assinatura_status)}
-                               {!usuario.ativo && <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                             </div>
-                           </TableCell>
-                           <TableCell>
-                             <Switch
-                               checked={usuario.ativo}
-                               onCheckedChange={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
-                             />
-                           </TableCell>
-                           <TableCell>
-                             {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
-                           </TableCell>
-                           <TableCell>
-                             <div className="flex gap-2">
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
-                               >
-                                 {usuario.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                               </Button>
-                             </div>
-                           </TableCell>
-                         </TableRow>
-                       ))
-                     )}
+                      {usuarios.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center text-muted-foreground">
+                            Nenhum usuário encontrado
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        usuarios.map((usuario: any) => (
+                          <TableRow key={usuario.id}>
+                            <TableCell className="font-medium">{usuario.nome}</TableCell>
+                            <TableCell>{usuario.email}</TableCell>
+                            <TableCell>{usuario.telefone || '-'}</TableCell>
+                            <TableCell>{usuario.cpf || '-'}</TableCell>
+                            <TableCell>
+                              <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                                {usuario.order_id || '-'}
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <Select 
+                                value={usuario.role} 
+                                onValueChange={(value) => handleUpdateUserRole(usuario.id, value)}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="cliente">Cliente</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="operador">Operador</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getAssinaturaStatusBadge(usuario.assinatura_status)}
+                                {!usuario.ativo && <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={usuario.ativo}
+                                onCheckedChange={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
+                                >
+                                  {usuario.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                    </TableBody>
                  </Table>
                </CardContent>
@@ -894,6 +1016,158 @@ const Admin = () => {
               </DialogContent>
             </Dialog>
            </TabsContent>
+
+          {/* Vendas */}
+          <TabsContent value="vendas" className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">R$ {stats.faturamentoMensal.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Faturamento mensal bruto
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Receita Líquida</CardTitle>
+                  <DollarSign className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">R$ {stats.faturamentoLiquido.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Após descontos e taxas
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Assinaturas Vendidas</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.assinaturasAtivas}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Planos ativos
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">R$ 59,90</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Valor por assinatura
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Histórico de Vendas</CardTitle>
+                  <CardDescription>Usuários cadastrados via webhook</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Order ID</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usuarios.filter(u => u.order_id).map((usuario: any) => (
+                        <TableRow key={usuario.id}>
+                          <TableCell className="font-medium">{usuario.nome}</TableCell>
+                          <TableCell>{usuario.email}</TableCell>
+                          <TableCell>
+                            <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                              {usuario.order_id}
+                            </code>
+                          </TableCell>
+                          <TableCell>
+                            {getAssinaturaStatusBadge(usuario.assinatura_status)}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-bold text-green-600">R$ 59,90</span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Métricas de Conversão</CardTitle>
+                  <CardDescription>Performance das vendas</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Taxa de Conversão</span>
+                      <span className="font-bold">
+                        {stats.totalUsuarios > 0 ? ((stats.assinaturasAtivas / stats.totalUsuarios) * 100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.totalUsuarios > 0 ? (stats.assinaturasAtivas / stats.totalUsuarios) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Assinaturas Ativas</span>
+                      <span className="font-bold">{stats.assinaturasAtivas}/{stats.totalUsuarios}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full" 
+                        style={{ 
+                          width: `${stats.totalUsuarios > 0 ? (stats.assinaturasAtivas / stats.totalUsuarios) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-green-600">{stats.assinaturasAtivas}</div>
+                        <div className="text-xs text-muted-foreground">Vendas Realizadas</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-blue-600">{stats.totalUsuarios - stats.assinaturasAtivas}</div>
+                        <div className="text-xs text-muted-foreground">Leads Pendentes</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           {/* Procedimentos */}
           <TabsContent value="procedimentos" className="space-y-6">
