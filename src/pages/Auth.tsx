@@ -19,6 +19,85 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Primeiro verifica se é o usuário admin específico
+      if (email === "eduardy@tryade.com" && password === "@Tryade2025") {
+        // Tentar logar com Supabase Auth
+        let { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        // Se der erro, significa que o usuário não existe no Auth, então criar
+        if (signInError && signInError.message.includes("Invalid login credentials")) {
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/admin`
+            }
+          });
+
+          if (signUpError) {
+            console.error("SignUp error:", signUpError);
+            toast({
+              title: "Erro ao criar conta admin",
+              description: signUpError.message,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Após criar, tentar logar novamente
+          const { error: retrySignInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (retrySignInError) {
+            console.error("Retry signIn error:", retrySignInError);
+            toast({
+              title: "Erro no login após criação",
+              description: retrySignInError.message,
+              variant: "destructive",
+            });
+            return;
+          }
+        } else if (signInError) {
+          console.error("SignIn error:", signInError);
+          toast({
+            title: "Erro ao fazer login",
+            description: signInError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Verificar se o usuário existe no banco e atualizar auth_user_id se necessário
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: userData, error: userError } = await supabase
+            .from("usuarios")
+            .select("*")
+            .eq("email", email)
+            .single();
+
+          if (userData && !userData.auth_user_id) {
+            await supabase
+              .from("usuarios")
+              .update({ auth_user_id: user.id })
+              .eq("email", email);
+          }
+        }
+
+        toast({
+          title: "Login admin realizado com sucesso!",
+          description: "Redirecionando para o painel...",
+        });
+        window.location.href = "/admin";
+        return;
+      }
+
+      // Login normal para outros usuários
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -38,6 +117,7 @@ const Auth = () => {
         window.location.href = "/cliente";
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Erro inesperado",
         description: "Tente novamente em alguns minutos.",
@@ -103,22 +183,21 @@ const Auth = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">CPF (apenas números)</Label>
+                <Label htmlFor="password">Senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="00000000000"
+                    placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
-                    maxLength={11}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Use seu CPF como senha (somente números)
+                  Clientes: use seu CPF | Admin: use sua senha
                 </p>
               </div>
               <Button
