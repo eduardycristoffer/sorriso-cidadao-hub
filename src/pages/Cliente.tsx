@@ -88,15 +88,32 @@ const Cliente = () => {
       
       if (authUser) {
         // Se tem usuário autenticado, buscar pelos dados do auth
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("usuarios")
           .select("*")
           .eq("auth_user_id", authUser.id)
-          .eq("role", "cliente")
           .eq("ativo", true)
           .maybeSingle();
 
-        if (!error && data) {
+        // Se não encontrou pelo auth_user_id, buscar pelo email e atualizar
+        if (!data || error) {
+          const { data: emailData } = await supabase
+            .from("usuarios")
+            .select("*")
+            .eq("email", authUser.email)
+            .eq("ativo", true)
+            .maybeSingle();
+
+          if (emailData) {
+            // Atualizar com o auth_user_id correto
+            await supabase
+              .from("usuarios")
+              .update({ auth_user_id: authUser.id })
+              .eq("id", emailData.id);
+            
+            userData = { ...emailData, auth_user_id: authUser.id };
+          }
+        } else {
           userData = data;
         }
       }
@@ -110,7 +127,6 @@ const Cliente = () => {
             .from("usuarios")
             .select("*")
             .eq("email", savedEmail)
-            .eq("role", "cliente")
             .eq("ativo", true)
             .maybeSingle();
 
