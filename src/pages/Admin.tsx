@@ -6,7 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -25,11 +29,24 @@ const Admin = () => {
   const [procedimentos, setProcedimentos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [editingProcedure, setEditingProcedure] = useState(null);
+  const [newProcedureDialog, setNewProcedureDialog] = useState(false);
+  const [selectedOrdem, setSelectedOrdem] = useState(null);
+  const [ordemDialog, setOrdemDialog] = useState(false);
+  const [newProcedure, setNewProcedure] = useState({
+    nome: '',
+    categoria_id: '',
+    preco_min: '',
+    preco_max: '',
+    observacoes: ''
+  });
   const [stats, setStats] = useState({
     totalUsuarios: 0,
     assinaturasAtivas: 0,
     ordensServico: 0,
-    faturamentoMensal: 0
+    faturamentoMensal: 0,
+    faturamentoLiquido: 0,
+    ordensConfirmadas: 0,
+    ordensPendentes: 0
   });
 
   useEffect(() => {
@@ -194,12 +211,19 @@ const Admin = () => {
       const totalUsuarios = usuariosData?.length || 0;
       const assinaturasAtivas = usuariosData?.filter(u => u.assinatura_status === 'ATIVA').length || 0;
       const totalOS = ordensData?.length || 0;
+      const ordensConfirmadas = ordensData?.filter(o => o.status === 'confirmada' || o.status === 'realizada').length || 0;
+      const ordensPendentes = ordensData?.filter(o => o.status === 'solicitada' || o.status === 'em_analise').length || 0;
+      const faturamentoMensal = assinaturasAtivas * 59.90;
+      const faturamentoLiquido = faturamentoMensal * 0.85; // Considerando 15% de taxas
 
       setStats({
         totalUsuarios,
         assinaturasAtivas,
         ordensServico: totalOS,
-        faturamentoMensal: assinaturasAtivas * 59.90
+        faturamentoMensal,
+        faturamentoLiquido,
+        ordensConfirmadas,
+        ordensPendentes
       });
 
     } catch (error) {
@@ -255,6 +279,119 @@ const Admin = () => {
       toast({
         title: "Sucesso",
         description: "Procedimento atualizado com sucesso!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateProcedure = async () => {
+    try {
+      const { error } = await supabase
+        .from("procedimentos")
+        .insert({
+          nome: newProcedure.nome,
+          categoria_id: newProcedure.categoria_id,
+          preco_min: parseFloat(newProcedure.preco_min),
+          preco_max: newProcedure.preco_max ? parseFloat(newProcedure.preco_max) : null,
+          observacoes: newProcedure.observacoes || null
+        });
+
+      if (error) throw error;
+
+      // Recarregar dados e limpar form
+      loadDashboardData();
+      setNewProcedureDialog(false);
+      setNewProcedure({
+        nome: '',
+        categoria_id: '',
+        preco_min: '',
+        preco_max: '',
+        observacoes: ''
+      });
+      
+      toast({
+        title: "Sucesso",
+        description: "Procedimento criado com sucesso!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, newRole: string) => {
+    try {
+      const { error } = await supabase
+        .from("usuarios")
+        .update({ role: newRole })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      loadDashboardData();
+      toast({
+        title: "Sucesso",
+        description: "Role do usuário atualizada!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("usuarios")
+        .update({ ativo: !currentStatus })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      loadDashboardData();
+      toast({
+        title: "Sucesso",
+        description: `Usuário ${!currentStatus ? 'ativado' : 'desativado'} com sucesso!`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateOrdemStatus = async (ordemId: string, newStatus: string, dataConfirmada?: string) => {
+    try {
+      const updateData: any = { status: newStatus };
+      if (dataConfirmada) {
+        updateData.data_confirmada = dataConfirmada;
+      }
+
+      const { error } = await supabase
+        .from("ordens_servico")
+        .update(updateData)
+        .eq("id", ordemId);
+
+      if (error) throw error;
+
+      loadDashboardData();
+      setOrdemDialog(false);
+      toast({
+        title: "Sucesso",
+        description: "Ordem de serviço atualizada!",
       });
     } catch (error: any) {
       toast({
@@ -449,20 +586,47 @@ const Admin = () => {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ordens de Serviço</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Ordens Confirmadas</CardTitle>
+                  <Check className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.ordensServico}</div>
+                  <div className="text-2xl font-bold">{stats.ordensConfirmadas}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Faturamento Mensal</CardTitle>
+                  <CardTitle className="text-sm font-medium">Ordens Pendentes</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.ordensPendentes}</div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Faturamento Mensal Bruto</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">R$ {stats.faturamentoMensal.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.assinaturasAtivas} assinaturas × R$ 59,90
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Faturamento Líquido</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">R$ {stats.faturamentoLiquido.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Descontando 15% de taxas
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -474,7 +638,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle>Usuários Cadastrados</CardTitle>
                 <CardDescription>
-                  Lista de todos os usuários do sistema
+                  Gerenciar usuários, roles e status de ativação
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -484,14 +648,17 @@ const Admin = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>CPF</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status Assinatura</TableHead>
+                      <TableHead>Ativo</TableHead>
                       <TableHead>Data Cadastro</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
                      {usuarios.length === 0 ? (
                        <TableRow>
-                         <TableCell colSpan={5} className="text-center text-muted-foreground">
+                         <TableCell colSpan={8} className="text-center text-muted-foreground">
                            Nenhum usuário encontrado
                          </TableCell>
                        </TableRow>
@@ -502,10 +669,45 @@ const Admin = () => {
                            <TableCell>{usuario.email}</TableCell>
                            <TableCell>{usuario.cpf || '-'}</TableCell>
                            <TableCell>
-                             {getAssinaturaStatusBadge(usuario.assinatura_status)}
+                             <Select 
+                               value={usuario.role} 
+                               onValueChange={(value) => handleUpdateUserRole(usuario.id, value)}
+                             >
+                               <SelectTrigger className="w-32">
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="cliente">Cliente</SelectItem>
+                                 <SelectItem value="admin">Admin</SelectItem>
+                                 <SelectItem value="operador">Operador</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </TableCell>
+                           <TableCell>
+                             <div className="flex items-center gap-2">
+                               {getAssinaturaStatusBadge(usuario.assinatura_status)}
+                               {!usuario.ativo && <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                             </div>
+                           </TableCell>
+                           <TableCell>
+                             <Switch
+                               checked={usuario.ativo}
+                               onCheckedChange={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
+                             />
                            </TableCell>
                            <TableCell>
                              {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
+                           </TableCell>
+                           <TableCell>
+                             <div className="flex gap-2">
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
+                               >
+                                 {usuario.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                               </Button>
+                             </div>
                            </TableCell>
                          </TableRow>
                        ))
@@ -513,8 +715,8 @@ const Admin = () => {
                    </TableBody>
                  </Table>
                </CardContent>
-            </Card>
-          </TabsContent>
+           </Card>
+         </TabsContent>
 
           {/* Ordens de Serviço */}
           <TabsContent value="ordens" className="space-y-6">
@@ -530,10 +732,13 @@ const Admin = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Cliente</TableHead>
+                      <TableHead>Contato</TableHead>
                       <TableHead>Procedimento</TableHead>
                       <TableHead>Clínica</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Data Solicitação</TableHead>
+                      <TableHead>Data Solicitada</TableHead>
+                      <TableHead>Data Confirmada</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -542,13 +747,58 @@ const Admin = () => {
                         <TableCell className="font-medium">
                           {ordem.usuarios?.nome || 'N/A'}
                         </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Mail className="h-3 w-3" />
+                              {ordem.usuarios?.email || 'N/A'}
+                            </div>
+                            {ordem.usuarios?.telefone && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3" />
+                                {ordem.usuarios.telefone}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{ordem.procedimentos?.nome || 'N/A'}</TableCell>
-                        <TableCell>{ordem.clinicas?.nome || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{ordem.clinicas?.nome || 'N/A'}</div>
+                            {ordem.clinicas?.cidade && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                {ordem.clinicas.cidade}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {getStatusBadge(ordem.status)}
                         </TableCell>
                         <TableCell>
-                          {new Date(ordem.created_at).toLocaleDateString('pt-BR')}
+                          {ordem.data_solicitada 
+                            ? new Date(ordem.data_solicitada).toLocaleDateString('pt-BR')
+                            : new Date(ordem.created_at).toLocaleDateString('pt-BR')
+                          }
+                        </TableCell>
+                        <TableCell>
+                          {ordem.data_confirmada 
+                            ? new Date(ordem.data_confirmada).toLocaleDateString('pt-BR')
+                            : '-'
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedOrdem(ordem);
+                              setOrdemDialog(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -556,16 +806,190 @@ const Admin = () => {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Dialog para editar ordem */}
+            <Dialog open={ordemDialog} onOpenChange={setOrdemDialog}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Gerenciar Ordem de Serviço</DialogTitle>
+                  <DialogDescription>
+                    Atualizar status e informações da ordem
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedOrdem && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Cliente</Label>
+                        <p className="text-sm">{selectedOrdem.usuarios?.nome}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Email</Label>
+                        <p className="text-sm">{selectedOrdem.usuarios?.email}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Telefone</Label>
+                        <p className="text-sm">{selectedOrdem.usuarios?.telefone || 'Não informado'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Procedimento</Label>
+                        <p className="text-sm">{selectedOrdem.procedimentos?.nome}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="status">Status</Label>
+                        <Select 
+                          value={selectedOrdem.status} 
+                          onValueChange={(value) => setSelectedOrdem({...selectedOrdem, status: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="solicitada">Solicitada</SelectItem>
+                            <SelectItem value="em_analise">Em Análise</SelectItem>
+                            <SelectItem value="confirmada">Confirmada</SelectItem>
+                            <SelectItem value="realizada">Realizada</SelectItem>
+                            <SelectItem value="cancelada">Cancelada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="data_confirmada">Data Confirmada</Label>
+                        <Input
+                          type="date"
+                          value={selectedOrdem.data_confirmada ? selectedOrdem.data_confirmada.split('T')[0] : ''}
+                          onChange={(e) => setSelectedOrdem({...selectedOrdem, data_confirmada: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="observacoes">Observações Internas</Label>
+                      <Textarea
+                        value={selectedOrdem.observacoes_internas || ''}
+                        onChange={(e) => setSelectedOrdem({...selectedOrdem, observacoes_internas: e.target.value})}
+                        placeholder="Observações internas sobre a ordem..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setOrdemDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={() => handleUpdateOrdemStatus(
+                      selectedOrdem.id, 
+                      selectedOrdem.status, 
+                      selectedOrdem.data_confirmada
+                    )}
+                  >
+                    Salvar Alterações
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
            </TabsContent>
 
           {/* Procedimentos */}
           <TabsContent value="procedimentos" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Gerenciar Procedimentos</CardTitle>
-                <CardDescription>
-                  Atualizar valores dos procedimentos - as alterações serão aplicadas automaticamente para todos os clientes
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Gerenciar Procedimentos</CardTitle>
+                  <CardDescription>
+                    Criar novos procedimentos e atualizar valores
+                  </CardDescription>
+                </div>
+                <Dialog open={newProcedureDialog} onOpenChange={setNewProcedureDialog}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Procedimento
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Criar Novo Procedimento</DialogTitle>
+                      <DialogDescription>
+                        Adicionar um novo procedimento ao sistema
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="nome">Nome do Procedimento</Label>
+                        <Input
+                          id="nome"
+                          value={newProcedure.nome}
+                          onChange={(e) => setNewProcedure({...newProcedure, nome: e.target.value})}
+                          placeholder="Ex: Limpeza Dental"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="categoria">Categoria</Label>
+                        <Select 
+                          value={newProcedure.categoria_id} 
+                          onValueChange={(value) => setNewProcedure({...newProcedure, categoria_id: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categorias.map((cat: any) => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="preco_min">Preço Mínimo</Label>
+                          <Input
+                            id="preco_min"
+                            type="number"
+                            step="0.01"
+                            value={newProcedure.preco_min}
+                            onChange={(e) => setNewProcedure({...newProcedure, preco_min: e.target.value})}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="preco_max">Preço Máximo (Opcional)</Label>
+                          <Input
+                            id="preco_max"
+                            type="number"
+                            step="0.01"
+                            value={newProcedure.preco_max}
+                            onChange={(e) => setNewProcedure({...newProcedure, preco_max: e.target.value})}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="observacoes">Observações</Label>
+                        <Textarea
+                          id="observacoes"
+                          value={newProcedure.observacoes}
+                          onChange={(e) => setNewProcedure({...newProcedure, observacoes: e.target.value})}
+                          placeholder="Descrição do procedimento..."
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setNewProcedureDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateProcedure}>
+                        Criar Procedimento
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <Table>
