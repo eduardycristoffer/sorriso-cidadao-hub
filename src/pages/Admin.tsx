@@ -4,12 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Users, CreditCard, Settings } from "lucide-react";
+import { LogOut, Users, CreditCard, Settings, FileText } from "lucide-react";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
+import AdminOS from "./AdminOS";
 
 const Admin = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -93,12 +95,52 @@ const Admin = () => {
         </div>
       </header>
 
+      {/* Navigation */}
+      <nav className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "dashboard"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("os")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "os"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Ordens de Serviço
+            </button>
+            <button
+              onClick={() => setActiveTab("usuarios")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "usuarios"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Usuários
+            </button>
+          </div>
+        </div>
+      </nav>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Painel Administrativo</h1>
-          <p className="text-gray-600 mt-2">Gerencie o sistema Sorriso Cidadão</p>
-        </div>
+        {activeTab === "dashboard" && (
+          <div>
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">Painel Administrativo</h1>
+              <p className="text-gray-600 mt-2">Gerencie o sistema Sorriso Cidadão</p>
+            </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -229,6 +271,17 @@ const Admin = () => {
             </CardContent>
           </Card>
         </div>
+          </div>
+        )}
+
+        {activeTab === "os" && <AdminOS />}
+
+        {activeTab === "usuarios" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Gerenciar Usuários</h2>
+            <p className="text-gray-600 mb-4">Em desenvolvimento...</p>
+          </div>
+        )}
       </main>
     </div>
   );

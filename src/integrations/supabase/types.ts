@@ -43,6 +43,7 @@ export type Database = {
       }
       clinicas: {
         Row: {
+          ativo: boolean | null
           cidade: string | null
           created_at: string | null
           created_by: string | null
@@ -62,6 +63,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          ativo?: boolean | null
           cidade?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -81,6 +83,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          ativo?: boolean | null
           cidade?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -103,6 +106,7 @@ export type Database = {
       }
       dentistas: {
         Row: {
+          ativo: boolean | null
           clinica_id: string | null
           created_at: string | null
           created_by: string | null
@@ -115,6 +119,7 @@ export type Database = {
           usuario_id: string | null
         }
         Insert: {
+          ativo?: boolean | null
           clinica_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -127,6 +132,7 @@ export type Database = {
           usuario_id?: string | null
         }
         Update: {
+          ativo?: boolean | null
           clinica_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -288,6 +294,7 @@ export type Database = {
       usuarios: {
         Row: {
           assinatura_status: string | null
+          ativo: boolean | null
           auth_user_id: string | null
           cpf: string | null
           created_at: string | null
@@ -303,6 +310,7 @@ export type Database = {
         }
         Insert: {
           assinatura_status?: string | null
+          ativo?: boolean | null
           auth_user_id?: string | null
           cpf?: string | null
           created_at?: string | null
@@ -318,6 +326,7 @@ export type Database = {
         }
         Update: {
           assinatura_status?: string | null
+          ativo?: boolean | null
           auth_user_id?: string | null
           cpf?: string | null
           created_at?: string | null
