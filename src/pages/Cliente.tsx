@@ -265,6 +265,31 @@ const Cliente = () => {
     navigate("/");
   };
 
+  const handleCancelConsulta = async (ordemId: string) => {
+    try {
+      const { error } = await supabase
+        .from("ordens_servico")
+        .update({ status: "cancelada" })
+        .eq("id", ordemId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Consulta cancelada",
+        description: "Sua consulta foi cancelada com sucesso.",
+      });
+
+      loadData(); // Reload data to show updated status
+    } catch (error) {
+      console.error("Error canceling consultation:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao cancelar consulta. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -567,7 +592,11 @@ const Cliente = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               {ordem.status === "solicitada" && (
-                                <Button size="sm" variant="destructive">
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => handleCancelConsulta(ordem.id)}
+                                >
                                   Cancelar
                                 </Button>
                               )}
@@ -627,7 +656,12 @@ const Cliente = () => {
 
                           {ordem.status === "solicitada" && (
                             <div className="pt-2 border-t">
-                              <Button variant="destructive" size="sm" className="w-full text-xs">
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                className="w-full text-xs"
+                                onClick={() => handleCancelConsulta(ordem.id)}
+                              >
                                 Cancelar Consulta
                               </Button>
                             </div>
