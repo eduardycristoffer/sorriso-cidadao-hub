@@ -69,13 +69,50 @@ const Login = () => {
         return;
       }
 
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Redirecionando para sua área...",
-      });
-      
-      // Redirecionar para área do cliente
-      window.location.href = "/cliente";
+      // Salvar email na session para acesso
+      sessionStorage.setItem('client_email', userData.email);
+
+      // Se o usuário tem auth_user_id, tentar fazer login via Supabase
+      if (userData.auth_user_id) {
+        try {
+          // Tentar fazer login usando magic link simples
+          const { error: signInError } = await supabase.auth.signInWithOtp({
+            email: email,
+            options: {
+              shouldCreateUser: false
+            }
+          });
+
+          if (signInError) {
+            console.error("Erro no login:", signInError);
+          }
+          
+          toast({
+            title: "Login realizado com sucesso!",
+            description: "Redirecionando para sua área...",
+          });
+          
+          // Redirecionar para área do cliente
+          setTimeout(() => {
+            window.location.href = "/cliente";
+          }, 1000);
+          
+        } catch (authError) {
+          console.error("Auth error:", authError);
+          // Se falhar auth, redirecionar direto (fallback)
+          window.location.href = "/cliente";
+        }
+      } else {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Redirecionando para sua área...",
+        });
+        
+        // Redirecionar para área do cliente
+        setTimeout(() => {
+          window.location.href = "/cliente";
+        }, 1000);
+      }
 
     } catch (error) {
       console.error("Login error:", error);

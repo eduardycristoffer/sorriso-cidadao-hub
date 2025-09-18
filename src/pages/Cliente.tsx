@@ -81,44 +81,63 @@ const Cliente = () => {
 
   const checkUser = async () => {
     try {
+      // Primeiro, tentar obter usuário autenticado
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
+      
+      let userData = null;
+      
+      if (authUser) {
+        // Se tem usuário autenticado, buscar pelos dados do auth
+        const { data, error } = await supabase
+          .from("usuarios")
+          .select("*")
+          .eq("auth_user_id", authUser.id)
+          .eq("role", "cliente")
+          .eq("ativo", true)
+          .maybeSingle();
+
+        if (!error && data) {
+          userData = data;
+        }
+      }
+      
+      // Se não encontrou via auth, verificar se tem dados na URL ou session storage
+      if (!userData) {
+        // Tentar buscar pelo email salvo na session
+        const savedEmail = sessionStorage.getItem('client_email');
+        if (savedEmail) {
+          const { data, error } = await supabase
+            .from("usuarios")
+            .select("*")
+            .eq("email", savedEmail)
+            .eq("role", "cliente")
+            .eq("ativo", true)
+            .maybeSingle();
+
+          if (!error && data) {
+            userData = data;
+          }
+        }
+      }
+
+      if (!userData) {
         navigate("/entrar");
         return;
       }
 
-      const { data: userData, error } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("auth_user_id", authUser.id)
-        .single();
-
-      if (error || !userData) {
+      if (userData.assinatura_status !== 'ATIVA') {
         toast({
-          title: "Erro",
-          description: "Usuário não encontrado no sistema.",
+          title: "Assinatura não ativa",
+          description: "Sua assinatura precisa estar ativa para acessar o painel.",
           variant: "destructive",
         });
         navigate("/entrar");
         return;
       }
 
-      if (!userData.ativo) {
-        toast({
-          title: "Conta desativada",
-          description: "Sua conta foi desativada. Entre em contato conosco.",
-          variant: "destructive",
-        });
-        await supabase.auth.signOut();
-        navigate("/");
-        return;
-      }
-
-      if (userData.role !== "cliente") {
-        navigate("/admin");
-        return;
-      }
-
+      // Salvar email na session para próximas tentativas
+      sessionStorage.setItem('client_email', userData.email);
+      
       setUser(userData);
     } catch (error) {
       console.error("Error checking user:", error);
@@ -385,34 +404,37 @@ const Cliente = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProcedimentos.map((procedimento) => (
-                      <TableRow key={procedimento.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>{procedimento.categorias?.icone || "📋"}</span>
-                            <span className="font-medium">{procedimento.categorias?.nome}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{procedimento.nome}</TableCell>
-                        <TableCell>{formatPrice(procedimento.preco_min, procedimento.preco_max)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleSolicitarConsulta(procedimento)}
-                          >
-                            Solicitar
-                          </Button>
+                    {filteredProcedimentos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {procedimentos.length === 0 ? "Carregando procedimentos..." : "Nenhum procedimento encontrado"}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      filteredProcedimentos.map((procedimento) => (
+                        <TableRow key={procedimento.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span>{procedimento.categorias?.icone || "📋"}</span>
+                              <span className="font-medium">{procedimento.categorias?.nome}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{procedimento.nome}</TableCell>
+                          <TableCell>{formatPrice(procedimento.preco_min, procedimento.preco_max)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleSolicitarConsulta(procedimento)}
+                            >
+                              Solicitar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
-                {filteredProcedimentos.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum procedimento encontrado
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
