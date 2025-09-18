@@ -290,6 +290,19 @@ const Cliente = () => {
     }
   };
 
+  const getIconEmoji = (iconName: string) => {
+    const iconMap = {
+      'tooth': '🦷',
+      'drill': '🦷',
+      'scissors': '🦷', 
+      'brush': '🦷',
+      'sparkles': '✨',
+      'crown': '👑',
+      'stethoscope': '🩺'
+    };
+    return iconMap[iconName] || '🦷';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -460,7 +473,7 @@ const Cliente = () => {
                           <TableRow key={procedimento.id}>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                <span>{procedimento.categorias?.icone || "📋"}</span>
+                                <span>{getIconEmoji(procedimento.categorias?.icone) || "📋"}</span>
                                 <span className="font-medium">{procedimento.categorias?.nome}</span>
                               </div>
                             </TableCell>
@@ -493,7 +506,7 @@ const Cliente = () => {
                       <Card key={procedimento.id} className="p-4">
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{procedimento.categorias?.icone || "📋"}</span>
+                            <span className="text-lg">{getIconEmoji(procedimento.categorias?.icone) || "📋"}</span>
                             <div>
                               <p className="text-xs text-muted-foreground">{procedimento.categorias?.nome}</p>
                               <p className="font-medium text-sm">{procedimento.nome}</p>
