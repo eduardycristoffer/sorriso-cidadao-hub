@@ -53,7 +53,7 @@ export const Header = () => {
         {/* Desktop CTAs */}
         <div className="hidden lg:flex items-center space-x-3">
           <Button variant="ghost" asChild size="sm">
-            <a href="/entrar">Entrar</a>
+            <a href="/login">Entrar</a>
           </Button>
           <Button variant="hero" onClick={handleCheckout} size="sm">
             Assinar agora
@@ -87,7 +87,7 @@ export const Header = () => {
             </nav>
             <div className="flex flex-col space-y-2 pt-4 border-t">
               <Button variant="ghost" asChild>
-                <a href="/entrar">Entrar</a>
+                <a href="/login">Entrar</a>
               </Button>
               <Button variant="hero" onClick={handleCheckout}>
                 Assinar agora

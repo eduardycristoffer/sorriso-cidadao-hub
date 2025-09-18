@@ -8,103 +8,74 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
 
-const Auth = () => {
-  const [email, setEmail] = useState("eduardy");
-  const [password, setPassword] = useState("");
+const Login = () => {
+  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleClientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Validar credenciais fixas do admin
-      if (email !== "eduardy" || password !== "@Tryade2025") {
+      // Validar se email e CPF foram preenchidos
+      if (!email || !cpf) {
         toast({
-          title: "Credenciais inválidas",
-          description: "Usuário ou senha incorretos.",
+          title: "Dados obrigatórios",
+          description: "Preencha seu e-mail e CPF.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      // Fazer login com o email correto no Supabase
-      const adminEmail = "eduardy@tryade.com";
-      let { error: signInError } = await supabase.auth.signInWithPassword({
-        email: adminEmail,
-        password,
-      });
+      // Verificar se o cliente existe no banco de dados
+      const { data: userData, error: userError } = await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("email", email)
+        .eq("cpf", cpf.replace(/\D/g, '')) // Remove formatação do CPF
+        .eq("role", "cliente")
+        .eq("ativo", true)
+        .maybeSingle();
 
-      // Se der erro, criar a conta admin
-      if (signInError && signInError.message.includes("Invalid login credentials")) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: adminEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/admin`
-          }
-        });
-
-        if (signUpError) {
-          console.error("SignUp error:", signUpError);
-          toast({
-            title: "Erro ao criar conta admin",
-            description: signUpError.message,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Tentar logar novamente após criar a conta
-        const { error: retrySignInError } = await supabase.auth.signInWithPassword({
-          email: adminEmail,
-          password,
-        });
-
-        if (retrySignInError) {
-          console.error("Retry signIn error:", retrySignInError);
-          toast({
-            title: "Erro no login",
-            description: retrySignInError.message,
-            variant: "destructive",
-          });
-          return;
-        }
-      } else if (signInError) {
-        console.error("SignIn error:", signInError);
+      if (userError) {
+        console.error("Erro ao buscar usuário:", userError);
         toast({
-          title: "Erro ao fazer login",
-          description: signInError.message,
+          title: "Erro no sistema",
+          description: "Tente novamente em alguns minutos.",
           variant: "destructive",
         });
         return;
       }
 
-      // Verificar e atualizar dados do admin no banco
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData, error: userError } = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("email", adminEmail)
-          .maybeSingle();
+      if (!userData) {
+        toast({
+          title: "Dados não encontrados",
+          description: "Verifique seu e-mail e CPF, ou entre em contato conosco.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-        if (userData && !userData.auth_user_id) {
-          await supabase
-            .from("usuarios")
-            .update({ auth_user_id: user.id })
-            .eq("email", adminEmail);
-        }
+      // Verificar status da assinatura
+      if (userData.assinatura_status !== 'ATIVA') {
+        toast({
+          title: "Assinatura não ativa",
+          description: "Sua assinatura precisa estar ativa para acessar o painel.",
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({
         title: "Login realizado com sucesso!",
-        description: "Redirecionando para o painel administrativo...",
+        description: "Redirecionando para sua área...",
       });
       
-      window.location.href = "/admin";
+      // Redirecionar para área do cliente
+      window.location.href = "/cliente";
 
     } catch (error) {
       console.error("Login error:", error);
@@ -118,6 +89,14 @@ const Auth = () => {
     }
   };
 
+  const formatCPF = (value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    return numericValue
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
@@ -144,27 +123,27 @@ const Auth = () => {
             />
           </div>
           <p className="text-white/90">
-            Acesso administrativo
+            Acesse sua área do cliente
           </p>
         </div>
 
         <Card className="shadow-2xl border-0">
           <CardHeader className="text-center">
-            <CardTitle>Painel Administrativo</CardTitle>
+            <CardTitle>Área do Cliente</CardTitle>
             <CardDescription>
-              Entre com suas credenciais de administrador
+              Entre com seu e-mail e CPF para acessar sua conta
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAdminLogin} className="space-y-4">
+            <form onSubmit={handleClientLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Usuário</Label>
+                <Label htmlFor="email">E-mail</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="text"
-                    placeholder="usuário"
+                    type="email"
+                    placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
@@ -173,19 +152,23 @@ const Auth = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="cpf">CPF</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="password"
-                    type="password"
-                    placeholder="Digite sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="cpf"
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatCPF(e.target.value))}
                     className="pl-10"
                     required
+                    maxLength={14}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Use o CPF que você informou na compra
+                </p>
               </div>
               <Button
                 type="submit"
@@ -193,20 +176,20 @@ const Auth = () => {
                 disabled={loading}
                 variant="primary_cta"
               >
-                {loading ? "Entrando..." : "Acessar Painel"}
+                {loading ? "Entrando..." : "Acessar Minha Área"}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               <p>
-                Problemas de acesso?{" "}
+                Problemas para acessar?{" "}
                 <a
                   href="https://wa.me/5562999999999"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
                 >
-                  Contate o suporte técnico
+                  Fale conosco
                 </a>
               </p>
             </div>
@@ -216,8 +199,9 @@ const Auth = () => {
         {/* Info */}
         <div className="mt-6 text-center text-white/80 text-sm">
           <p>
+            Ainda não tem o Cartão Sorriso Cidadão?{" "}
             <a href="/" className="text-secondary hover:underline font-semibold">
-              ← Voltar ao site
+              Assine agora
             </a>
           </p>
         </div>
@@ -226,4 +210,4 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+export default Login;
