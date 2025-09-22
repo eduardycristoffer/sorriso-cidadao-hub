@@ -52,6 +52,16 @@ const Admin = () => {
     ordensEmAnalise: 0
   });
 
+  const [createUserDialog, setCreateUserDialog] = useState(false);
+  const [newUser, setNewUser] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    cpf: '',
+    role: 'cliente',
+    password: ''
+  });
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -401,6 +411,59 @@ const Admin = () => {
       toast({
         title: "Sucesso",
         description: "Ordem de serviço atualizada!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      // Criar usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (authError) throw authError;
+
+      // Criar entrada na tabela usuarios
+      const { error: dbError } = await supabase
+        .from("usuarios")
+        .insert({
+          nome: newUser.nome,
+          email: newUser.email,
+          telefone: newUser.telefone,
+          cpf: newUser.cpf,
+          role: newUser.role,
+          auth_user_id: authData.user?.id,
+          ativo: true
+        });
+
+      if (dbError) throw dbError;
+
+      // Recarregar dados e limpar form
+      loadDashboardData();
+      setCreateUserDialog(false);
+      setNewUser({
+        nome: '',
+        email: '',
+        telefone: '',
+        cpf: '',
+        role: 'cliente',
+        password: ''
+      });
+      
+      toast({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso!",
       });
     } catch (error: any) {
       toast({
@@ -768,12 +831,119 @@ const Admin = () => {
           {/* Usuários */}
           <TabsContent value="usuarios" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Usuários Cadastrados</CardTitle>
-                <CardDescription>
-                  Gerenciar usuários, roles e status de ativação
-                </CardDescription>
-              </CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Usuários Cadastrados</CardTitle>
+                  <CardDescription>
+                    Gerenciar usuários, roles e status de ativação
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setNewUser({
+                        nome: 'rodrigo',
+                        email: 'novaodontologiaanapolis@gmail.com',
+                        telefone: '',
+                        cpf: '',
+                        role: 'admin',
+                        password: '@Novaodonto2025@'
+                      });
+                      setCreateUserDialog(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Rodrigo
+                  </Button>
+                  <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="primary_cta">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Criar Usuário
+                      </Button>
+                    </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Criar Novo Usuário</DialogTitle>
+                      <DialogDescription>
+                        Preencha os dados do novo usuário
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nome">Nome Completo</Label>
+                        <Input
+                          id="nome"
+                          value={newUser.nome}
+                          onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })}
+                          placeholder="Digite o nome completo"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                          placeholder="Digite o email"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Senha</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                          placeholder="Digite a senha"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="telefone">Telefone</Label>
+                        <Input
+                          id="telefone"
+                          value={newUser.telefone}
+                          onChange={(e) => setNewUser({ ...newUser, telefone: e.target.value })}
+                          placeholder="Digite o telefone"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cpf">CPF</Label>
+                        <Input
+                          id="cpf"
+                          value={newUser.cpf}
+                          onChange={(e) => setNewUser({ ...newUser, cpf: e.target.value })}
+                          placeholder="Digite o CPF"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Tipo de Usuário</Label>
+                        <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cliente">Cliente</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="operador">Operador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setCreateUserDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateUser} variant="primary_cta">
+                        Criar Usuário
+                      </Button>
+                    </DialogFooter>
+                   </DialogContent>
+                 </Dialog>
+                 </div>
+               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
