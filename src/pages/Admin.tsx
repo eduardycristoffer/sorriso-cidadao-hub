@@ -96,15 +96,15 @@ const Admin = () => {
     setLoginLoading(true);
 
     try {
-      // Verificar credenciais válidas
+      // Verificar credenciais válidas (sem usar Supabase auth)
       const validCredentials = [
-        { email: "eduardy", password: "@Tryade2025", authEmail: "eduardy@tryade.com" },
-        { email: "novaodontologiaanapolis@gmail.com", password: "@Novaodonto2025@", authEmail: "novaodontologiaanapolis@gmail.com" },
-        { email: "rodrigo", password: "@Novaodonto2025@", authEmail: "novaodontologiaanapolis@gmail.com" }
+        { email: "eduardy", password: "@Tryade2025" },
+        { email: "novaodontologiaanapolis@gmail.com", password: "@Novaodonto2025@" },
+        { email: "rodrigo", password: "@Novaodonto2025@" }
       ];
 
       const validCredential = validCredentials.find(cred => 
-        (cred.email === email || cred.authEmail === email) && cred.password === password
+        cred.email === email && cred.password === password
       );
 
       if (!validCredential) {
@@ -115,53 +115,6 @@ const Admin = () => {
         });
         setLoginLoading(false);
         return;
-      }
-
-      const adminEmail = validCredential.authEmail;
-      let { error: signInError } = await supabase.auth.signInWithPassword({
-        email: adminEmail,
-        password,
-      });
-
-      if (signInError && signInError.message.includes("Invalid login credentials")) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: adminEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/admin`
-          }
-        });
-
-        if (signUpError) {
-          throw signUpError;
-        }
-
-        const { error: retrySignInError } = await supabase.auth.signInWithPassword({
-          email: adminEmail,
-          password,
-        });
-
-        if (retrySignInError) {
-          throw retrySignInError;
-        }
-      } else if (signInError) {
-        throw signInError;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("email", adminEmail)
-          .maybeSingle();
-
-        if (userData && !userData.auth_user_id) {
-          await supabase
-            .from("usuarios")
-            .update({ auth_user_id: user.id })
-            .eq("email", adminEmail);
-        }
       }
 
       setIsAuthenticated(true);
@@ -175,7 +128,7 @@ const Admin = () => {
       console.error("Login error:", error);
       toast({
         title: "Erro no login",
-        description: error.message,
+        description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
     } finally {
