@@ -99,8 +99,8 @@ const Admin = () => {
       // Verificar credenciais válidas (sem usar Supabase auth)
       const validCredentials = [
         { email: "eduardy", password: "@Tryade2025" },
-        { email: "novaodontologiaanapolis@gmail.com", password: "@Novaodonto2025@" },
-        { email: "rodrigo", password: "@Novaodonto2025@" }
+        { email: "novaodontologiaanapolis@gmail.com", password: "@novaodonto2025" },
+        { email: "rodrigo", password: "@novaodonto2025" }
       ];
 
       const validCredential = validCredentials.find(cred => 
