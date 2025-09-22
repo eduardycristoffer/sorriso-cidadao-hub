@@ -474,6 +474,33 @@ const Admin = () => {
     }
   };
 
+  const handleActivateSubscription = async (email) => {
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ 
+          assinatura_status: 'ATIVA',
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', email);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: `Assinatura ativada para ${email}!`,
+      });
+      
+      loadDashboardData();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -979,6 +1006,16 @@ const Admin = () => {
                               <div className="flex items-center gap-2">
                                 {getAssinaturaStatusBadge(usuario.assinatura_status)}
                                 {!usuario.ativo && <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                                {usuario.assinatura_status !== 'ATIVA' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleActivateSubscription(usuario.email)}
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    Ativar
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
