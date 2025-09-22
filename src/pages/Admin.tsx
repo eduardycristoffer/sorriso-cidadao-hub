@@ -838,31 +838,13 @@ const Admin = () => {
                     Gerenciar usuários, roles e status de ativação
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setNewUser({
-                        nome: 'rodrigo',
-                        email: 'novaodontologiaanapolis@gmail.com',
-                        telefone: '',
-                        cpf: '',
-                        role: 'admin',
-                        password: '@Novaodonto2025@'
-                      });
-                      setCreateUserDialog(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Rodrigo
-                  </Button>
-                  <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="primary_cta">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar Usuário
-                      </Button>
-                    </DialogTrigger>
+                <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="primary_cta">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Usuário
+                    </Button>
+                  </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Criar Novo Usuário</DialogTitle>
@@ -942,7 +924,6 @@ const Admin = () => {
                     </DialogFooter>
                    </DialogContent>
                  </Dialog>
-                 </div>
                </CardHeader>
               <CardContent>
                 <Table>
