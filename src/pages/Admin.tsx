@@ -96,7 +96,18 @@ const Admin = () => {
     setLoginLoading(true);
 
     try {
-      if (email !== "eduardy" || password !== "@Tryade2025") {
+      // Verificar credenciais válidas
+      const validCredentials = [
+        { email: "eduardy", password: "@Tryade2025", authEmail: "eduardy@tryade.com" },
+        { email: "novaodontologiaanapolis@gmail.com", password: "@Novaodonto2025@", authEmail: "novaodontologiaanapolis@gmail.com" },
+        { email: "rodrigo", password: "@Novaodonto2025@", authEmail: "novaodontologiaanapolis@gmail.com" }
+      ];
+
+      const validCredential = validCredentials.find(cred => 
+        (cred.email === email || cred.authEmail === email) && cred.password === password
+      );
+
+      if (!validCredential) {
         toast({
           title: "Credenciais inválidas",
           description: "Usuário ou senha incorretos.",
@@ -106,7 +117,7 @@ const Admin = () => {
         return;
       }
 
-      const adminEmail = "eduardy@tryade.com";
+      const adminEmail = validCredential.authEmail;
       let { error: signInError } = await supabase.auth.signInWithPassword({
         email: adminEmail,
         password,
