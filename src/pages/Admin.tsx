@@ -29,7 +29,7 @@ const Admin = () => {
   const [procedimentos, setProcedimentos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [editingProcedure, setEditingProcedure] = useState(null);
-  const [editingValues, setEditingValues] = useState({ nome: '', preco_min: '', preco_max: '' });
+  const [editingValues, setEditingValues] = useState({ nome: '', categoria_id: '', preco_min: '', preco_max: '' });
   const [newProcedureDialog, setNewProcedureDialog] = useState(false);
   const [selectedOrdem, setSelectedOrdem] = useState(null);
   const [ordemDialog, setOrdemDialog] = useState(false);
@@ -276,6 +276,19 @@ const Admin = () => {
         updateData.nome = newData.nome.trim();
       }
 
+      // Se está editando categoria
+      if (newData.categoria_id !== undefined) {
+        if (!newData.categoria_id) {
+          toast({
+            title: "Erro",
+            description: "Categoria é obrigatória",
+            variant: "destructive",
+          });
+          return;
+        }
+        updateData.categoria_id = newData.categoria_id;
+      }
+
       // Se está editando preços
       if (newData.preco_min !== undefined) {
         if (!newData.preco_min || isNaN(parseFloat(newData.preco_min))) {
@@ -319,7 +332,7 @@ const Admin = () => {
       );
 
       setEditingProcedure(null);
-      setEditingValues({ nome: '', preco_min: '', preco_max: '' });
+      setEditingValues({ nome: '', categoria_id: '', preco_min: '', preco_max: '' });
       
       toast({
         title: "Sucesso",
@@ -1631,10 +1644,10 @@ const Admin = () => {
                                  <Button
                                    size="sm"
                                    variant="outline"
-                                    onClick={() => {
-                                      setEditingProcedure(null);
-                                      setEditingValues({ nome: '', preco_min: '', preco_max: '' });
-                                    }}
+                                     onClick={() => {
+                                       setEditingProcedure(null);
+                                       setEditingValues({ nome: '', categoria_id: '', preco_min: '', preco_max: '' });
+                                     }}
                                  >
                                    Cancelar
                                  </Button>
@@ -1645,11 +1658,12 @@ const Admin = () => {
                                  variant="outline"
                                  onClick={() => {
                                    setEditingProcedure(proc.id);
-                                    setEditingValues({
-                                      nome: proc.nome || '',
-                                      preco_min: proc.preco_min?.toString() || '',
-                                      preco_max: proc.preco_max?.toString() || ''
-                                    });
+                                     setEditingValues({
+                                       nome: proc.nome || '',
+                                       categoria_id: proc.categoria_id || '',
+                                       preco_min: proc.preco_min?.toString() || '',
+                                       preco_max: proc.preco_max?.toString() || ''
+                                     });
                                  }}
                                >
                                  Editar
