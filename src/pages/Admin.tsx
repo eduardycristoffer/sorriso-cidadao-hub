@@ -30,6 +30,8 @@ const Admin = () => {
   const [categorias, setCategorias] = useState([]);
   const [editingProcedure, setEditingProcedure] = useState(null);
   const [editingValues, setEditingValues] = useState({ nome: '', categoria_id: '', preco_min: '', preco_max: '' });
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [procedureToDelete, setProcedureToDelete] = useState(null);
   const [newProcedureDialog, setNewProcedureDialog] = useState(false);
   const [selectedOrdem, setSelectedOrdem] = useState(null);
   const [ordemDialog, setOrdemDialog] = useState(false);
@@ -1883,17 +1885,16 @@ const Admin = () => {
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => {
-                                    if (confirm(`Tem certeza que deseja excluir o procedimento "${proc.nome}"?`)) {
-                                      handleDeleteProcedure(proc.id, proc.nome);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="destructive"
+                                   onClick={() => {
+                                     setProcedureToDelete(proc);
+                                     setDeleteDialog(true);
+                                   }}
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </Button>
                                </div>
                              )}
                           </TableCell>
@@ -1904,6 +1905,36 @@ const Admin = () => {
                 </Table>
               </CardContent>
             </Card>
+            
+            {/* Dialog de confirmação para excluir procedimento */}
+            <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Confirmar Exclusão</DialogTitle>
+                  <DialogDescription>
+                    Tem certeza que deseja excluir o procedimento "{procedureToDelete?.nome}"?
+                    Esta ação não pode ser desfeita.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => {
+                      if (procedureToDelete) {
+                        handleDeleteProcedure(procedureToDelete.id, procedureToDelete.nome);
+                        setDeleteDialog(false);
+                        setProcedureToDelete(null);
+                      }
+                    }}
+                  >
+                    Excluir
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Categorias */}
