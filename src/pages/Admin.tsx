@@ -245,18 +245,31 @@ const Admin = () => {
 
   const handleUpdateProcedure = async (procedureId: string, newData: any) => {
     try {
+      // Validar valores
+      if (!newData.preco_min || isNaN(parseFloat(newData.preco_min))) {
+        toast({
+          title: "Erro",
+          description: "Preço mínimo deve ser um valor válido",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const updateData = {
+        preco_min: parseFloat(newData.preco_min),
+        preco_max: newData.preco_max && newData.preco_max !== '' ? parseFloat(newData.preco_max) : null,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from("procedimentos")
-        .update({
-          preco_min: parseFloat(newData.preco_min),
-          preco_max: newData.preco_max ? parseFloat(newData.preco_max) : null
-        })
+        .update(updateData)
         .eq("id", procedureId);
 
       if (error) throw error;
 
-      // Recarregar dados
-      loadDashboardData();
+      // Recarregar dados para garantir sincronização
+      await loadDashboardData();
       setEditingProcedure(null);
       
       toast({
@@ -264,9 +277,10 @@ const Admin = () => {
         description: "Procedimento atualizado com sucesso!",
       });
     } catch (error: any) {
+      console.error("Erro ao atualizar procedimento:", error);
       toast({
         title: "Erro",
-        description: error.message,
+        description: error.message || "Erro ao atualizar procedimento",
         variant: "destructive",
       });
     }
@@ -274,20 +288,40 @@ const Admin = () => {
 
   const handleCreateProcedure = async () => {
     try {
+      // Validar campos obrigatórios
+      if (!newProcedure.nome || !newProcedure.categoria_id || !newProcedure.preco_min) {
+        toast({
+          title: "Erro",
+          description: "Preencha todos os campos obrigatórios (Nome, Categoria e Preço Mínimo)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isNaN(parseFloat(newProcedure.preco_min))) {
+        toast({
+          title: "Erro",
+          description: "Preço mínimo deve ser um valor válido",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("procedimentos")
         .insert({
           nome: newProcedure.nome,
           categoria_id: newProcedure.categoria_id,
           preco_min: parseFloat(newProcedure.preco_min),
-          preco_max: newProcedure.preco_max ? parseFloat(newProcedure.preco_max) : null,
-          observacoes: newProcedure.observacoes || null
+          preco_max: newProcedure.preco_max && newProcedure.preco_max !== '' ? parseFloat(newProcedure.preco_max) : null,
+          observacoes: newProcedure.observacoes || null,
+          ativo: true
         });
 
       if (error) throw error;
 
       // Recarregar dados e limpar form
-      loadDashboardData();
+      await loadDashboardData();
       setNewProcedureDialog(false);
       setNewProcedure({
         nome: '',
@@ -302,9 +336,10 @@ const Admin = () => {
         description: "Procedimento criado com sucesso!",
       });
     } catch (error: any) {
+      console.error("Erro ao criar procedimento:", error);
       toast({
         title: "Erro",
-        description: error.message,
+        description: error.message || "Erro ao criar procedimento",
         variant: "destructive",
       });
     }

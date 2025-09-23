@@ -13,6 +13,26 @@ export const Procedures = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Configurar escuta em tempo real para atualizações
+    const channel = supabase
+      .channel('procedimentos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'procedimentos'
+        },
+        () => {
+          loadData(); // Recarregar dados quando houver mudanças
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadData = async () => {
