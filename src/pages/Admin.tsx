@@ -278,6 +278,7 @@ const Admin = () => {
 
       console.log("Dados para atualização:", updateData);
 
+      // Atualizar no banco de dados
       const { data, error } = await supabase
         .from("procedimentos")
         .update(updateData)
@@ -291,15 +292,34 @@ const Admin = () => {
 
       console.log("Atualização bem-sucedida:", data);
 
-      // Recarregar dados para garantir sincronização
-      console.log("Recarregando dados do dashboard...");
-      await loadDashboardData();
+      // Atualizar estado local imediatamente
+      setProcedimentos(currentProcedimentos => 
+        currentProcedimentos.map(proc => 
+          proc.id === procedureId 
+            ? { 
+                ...proc, 
+                preco_min: updateData.preco_min,
+                preco_max: updateData.preco_max,
+                updated_at: updateData.updated_at 
+              }
+            : proc
+        )
+      );
+
       setEditingProcedure(null);
+      setEditingValues({ preco_min: '', preco_max: '' });
       
       toast({
         title: "Sucesso",
         description: "Procedimento atualizado com sucesso!",
       });
+
+      // Recarregar dados em background para garantir sincronização
+      setTimeout(() => {
+        console.log("Recarregando dados em background...");
+        loadDashboardData();
+      }, 500);
+      
     } catch (error: any) {
       console.error("Erro ao atualizar procedimento:", error);
       toast({
