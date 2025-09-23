@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -1595,8 +1595,37 @@ const Admin = () => {
                     ) : (
                       procedimentos.map((proc: any) => (
                         <TableRow key={proc.id}>
-                          <TableCell className="font-medium">{proc.nome}</TableCell>
-                          <TableCell>{proc.categorias?.nome}</TableCell>
+                          <TableCell className="font-medium">
+                            {editingProcedure === proc.id ? (
+                              <Input
+                                value={editingValues.nome}
+                                onChange={(e) => setEditingValues({...editingValues, nome: e.target.value})}
+                                className="w-full"
+                                placeholder="Nome do procedimento"
+                              />
+                            ) : (
+                              proc.nome
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingProcedure === proc.id ? (
+                              <Select 
+                                value={editingValues.categoria_id} 
+                                onValueChange={(value) => setEditingValues({...editingValues, categoria_id: value})}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Selecione uma categoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categorias.map((cat: any) => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              proc.categorias?.nome
+                            )}
+                          </TableCell>
                            <TableCell>
                              {editingProcedure === proc.id ? (
                                <Input
@@ -1633,10 +1662,12 @@ const Admin = () => {
                                      console.log("Botão Salvar clicado para procedimento:", proc.id);
                                      console.log("Valores editados:", editingValues);
                                      
-                                     handleUpdateProcedure(proc.id, {
-                                       preco_min: editingValues.preco_min,
-                                       preco_max: editingValues.preco_max || null
-                                     });
+                                      handleUpdateProcedure(proc.id, {
+                                        nome: editingValues.nome,
+                                        categoria_id: editingValues.categoria_id,
+                                        preco_min: editingValues.preco_min,
+                                        preco_max: editingValues.preco_max || null
+                                      });
                                    }}
                                  >
                                    Salvar
@@ -1652,23 +1683,36 @@ const Admin = () => {
                                    Cancelar
                                  </Button>
                               </div>
-                            ) : (
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => {
-                                   setEditingProcedure(proc.id);
-                                     setEditingValues({
-                                       nome: proc.nome || '',
-                                       categoria_id: proc.categoria_id || '',
-                                       preco_min: proc.preco_min?.toString() || '',
-                                       preco_max: proc.preco_max?.toString() || ''
-                                     });
-                                 }}
-                               >
-                                 Editar
-                               </Button>
-                            )}
+                             ) : (
+                               <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingProcedure(proc.id);
+                                      setEditingValues({
+                                        nome: proc.nome || '',
+                                        categoria_id: proc.categoria_id || '',
+                                        preco_min: proc.preco_min?.toString() || '',
+                                        preco_max: proc.preco_max?.toString() || ''
+                                      });
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => {
+                                    if (confirm(`Tem certeza que deseja excluir o procedimento "${proc.nome}"?`)) {
+                                      handleDeleteProcedure(proc.id, proc.nome);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                               </div>
+                             )}
                           </TableCell>
                         </TableRow>
                       ))
