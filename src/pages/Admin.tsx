@@ -177,7 +177,7 @@ const Admin = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Carregar procedimentos e categorias
+      // Carregar procedimentos e categorias (apenas ativos)
       console.log("Carregando procedimentos...");
       const { data: procedimentosData, error: procError } = await supabase
         .from("procedimentos")
@@ -185,6 +185,7 @@ const Admin = () => {
           *,
           categorias(nome)
         `)
+        .eq("ativo", true)
         .order("nome");
 
       if (procError) {
@@ -1828,22 +1829,32 @@ const Admin = () => {
                           <TableCell>
                             {editingProcedure === proc.id ? (
                               <div className="flex gap-2">
-                                 <Button
-                                   size="sm"
-                                   onClick={() => {
-                                     console.log("Botão Salvar clicado para procedimento:", proc.id);
-                                     console.log("Valores editados:", editingValues);
-                                     
-                                      handleUpdateProcedure(proc.id, {
-                                        nome: editingValues.nome,
-                                        categoria_id: editingValues.categoria_id,
-                                        preco_min: editingValues.preco_min,
-                                        preco_max: editingValues.preco_max || null
-                                      });
-                                   }}
-                                 >
-                                   Salvar
-                                 </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      console.log("Botão Salvar clicado para procedimento:", proc.id);
+                                      console.log("Valores editados:", editingValues);
+                                      
+                                      // Verifica se há alterações antes de salvar
+                                      if (!editingValues.nome.trim()) {
+                                        toast({
+                                          title: "Erro",
+                                          description: "Nome do procedimento é obrigatório",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
+                                      
+                                       handleUpdateProcedure(proc.id, {
+                                         nome: editingValues.nome.trim(),
+                                         categoria_id: editingValues.categoria_id,
+                                         preco_min: editingValues.preco_min,
+                                         preco_max: editingValues.preco_max || null
+                                       });
+                                    }}
+                                  >
+                                    Salvar
+                                  </Button>
                                  <Button
                                    size="sm"
                                    variant="outline"
