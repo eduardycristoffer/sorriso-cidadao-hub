@@ -52,6 +52,16 @@ const Admin = () => {
     ordensRealizadas: 0,
     ordensEmAnalise: 0
   });
+  
+  // Estados para gerenciar categorias
+  const [editingCategoria, setEditingCategoria] = useState(null);
+  const [editingCategoriaValues, setEditingCategoriaValues] = useState({ nome: '', icone: '', ordem: '' });
+  const [newCategoriaDialog, setNewCategoriaDialog] = useState(false);
+  const [newCategoria, setNewCategoria] = useState({
+    nome: '',
+    icone: '',
+    ordem: ''
+  });
 
   const [createUserDialog, setCreateUserDialog] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -384,6 +394,164 @@ const Admin = () => {
       toast({
         title: "Erro",
         description: error.message || "Erro ao excluir procedimento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Funções para gerenciar categorias
+  const handleCreateCategoria = async () => {
+    try {
+      if (!newCategoria.nome || !newCategoria.icone) {
+        toast({
+          title: "Erro",
+          description: "Nome e ícone são obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("categorias")
+        .insert({
+          nome: newCategoria.nome,
+          icone: newCategoria.icone,
+          ordem: newCategoria.ordem ? parseInt(newCategoria.ordem) : categorias.length + 1,
+        });
+
+      if (error) throw error;
+
+      await loadDashboardData();
+      setNewCategoriaDialog(false);
+      setNewCategoria({ nome: '', icone: '', ordem: '' });
+      
+      toast({
+        title: "Sucesso",
+        description: "Categoria criada com sucesso!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar categoria",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateCategoria = async (categoriaId: string, newData: any) => {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (newData.nome !== undefined) {
+        if (!newData.nome.trim()) {
+          toast({
+            title: "Erro",
+            description: "Nome da categoria é obrigatório",
+            variant: "destructive",
+          });
+          return;
+        }
+        updateData.nome = newData.nome.trim();
+      }
+
+      if (newData.icone !== undefined) {
+        if (!newData.icone.trim()) {
+          toast({
+            title: "Erro",
+            description: "Ícone é obrigatório",
+            variant: "destructive",
+          });
+          return;
+        }
+        updateData.icone = newData.icone.trim();
+      }
+
+      if (newData.ordem !== undefined) {
+        updateData.ordem = parseInt(newData.ordem) || 1;
+      }
+
+      const { error } = await supabase
+        .from("categorias")
+        .update(updateData)
+        .eq("id", categoriaId);
+
+      if (error) throw error;
+
+      setCategorias(currentCategorias => 
+        currentCategorias.map(cat => 
+          cat.id === categoriaId 
+            ? { ...cat, ...updateData }
+            : cat
+        )
+      );
+
+      setEditingCategoria(null);
+      setEditingCategoriaValues({ nome: '', icone: '', ordem: '' });
+      
+      toast({
+        title: "Sucesso",
+        description: "Categoria atualizada com sucesso!",
+      });
+
+      setTimeout(() => {
+        loadDashboardData();
+      }, 500);
+      
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar categoria",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCategoria = async (categoriaId: string, categoriaNome: string) => {
+    try {
+      // Verificar se existem procedimentos usando esta categoria
+      const { data: procedimentosUsandoCategoria, error: checkError } = await supabase
+        .from("procedimentos")
+        .select("id")
+        .eq("categoria_id", categoriaId)
+        .eq("ativo", true);
+
+      if (checkError) throw checkError;
+
+      if (procedimentosUsandoCategoria && procedimentosUsandoCategoria.length > 0) {
+        toast({
+          title: "Erro",
+          description: `Não é possível excluir a categoria "${categoriaNome}" pois existem ${procedimentosUsandoCategoria.length} procedimento(s) usando ela.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("categorias")
+        .delete()
+        .eq("id", categoriaId);
+
+      if (error) throw error;
+
+      setCategorias(currentCategorias => 
+        currentCategorias.filter(cat => cat.id !== categoriaId)
+      );
+      
+      toast({
+        title: "Sucesso",
+        description: `Categoria "${categoriaNome}" foi excluída com sucesso!`,
+      });
+
+      setTimeout(() => {
+        loadDashboardData();
+      }, 500);
+      
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir categoria",
         variant: "destructive",
       });
     }
@@ -741,7 +909,7 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
@@ -761,6 +929,10 @@ const Admin = () => {
             <TabsTrigger value="procedimentos">
               <Calendar className="h-4 w-4 mr-2" />
               Procedimentos
+            </TabsTrigger>
+            <TabsTrigger value="categorias">
+              <FileText className="h-4 w-4 mr-2" />
+              Categorias
             </TabsTrigger>
             <TabsTrigger value="configuracoes">
               <Settings className="h-4 w-4 mr-2" />
@@ -1713,6 +1885,196 @@ const Admin = () => {
                                 </Button>
                                </div>
                              )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Categorias */}
+          <TabsContent value="categorias" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Gerenciar Categorias</CardTitle>
+                  <CardDescription>
+                    Criar, editar e excluir categorias de procedimentos
+                  </CardDescription>
+                </div>
+                <Dialog open={newCategoriaDialog} onOpenChange={setNewCategoriaDialog}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova Categoria
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Criar Nova Categoria</DialogTitle>
+                      <DialogDescription>
+                        Adicionar uma nova categoria ao sistema
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="nome">Nome da Categoria</Label>
+                        <Input
+                          id="nome"
+                          value={newCategoria.nome}
+                          onChange={(e) => setNewCategoria({...newCategoria, nome: e.target.value})}
+                          placeholder="Ex: Clareamento"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="icone">Ícone</Label>
+                        <Input
+                          id="icone"
+                          value={newCategoria.icone}
+                          onChange={(e) => setNewCategoria({...newCategoria, icone: e.target.value})}
+                          placeholder="Ex: sparkles"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Use nomes de ícones do Lucide React
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="ordem">Ordem (Opcional)</Label>
+                        <Input
+                          id="ordem"
+                          type="number"
+                          value={newCategoria.ordem}
+                          onChange={(e) => setNewCategoria({...newCategoria, ordem: e.target.value})}
+                          placeholder="1"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setNewCategoriaDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateCategoria}>
+                        Criar Categoria
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Ícone</TableHead>
+                      <TableHead>Ordem</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categorias.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Nenhuma categoria encontrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      categorias.map((cat: any) => (
+                        <TableRow key={cat.id}>
+                          <TableCell className="font-medium">
+                            {editingCategoria === cat.id ? (
+                              <Input
+                                value={editingCategoriaValues.nome}
+                                onChange={(e) => setEditingCategoriaValues({...editingCategoriaValues, nome: e.target.value})}
+                                className="w-full"
+                                placeholder="Nome da categoria"
+                              />
+                            ) : (
+                              cat.nome
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingCategoria === cat.id ? (
+                              <Input
+                                value={editingCategoriaValues.icone}
+                                onChange={(e) => setEditingCategoriaValues({...editingCategoriaValues, icone: e.target.value})}
+                                className="w-full"
+                                placeholder="Ícone"
+                              />
+                            ) : (
+                              cat.icone
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingCategoria === cat.id ? (
+                              <Input
+                                type="number"
+                                value={editingCategoriaValues.ordem}
+                                onChange={(e) => setEditingCategoriaValues({...editingCategoriaValues, ordem: e.target.value})}
+                                className="w-20"
+                                placeholder="1"
+                              />
+                            ) : (
+                              cat.ordem
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editingCategoria === cat.id ? (
+                              <div className="flex gap-2">
+                                 <Button
+                                   size="sm"
+                                   onClick={() => {
+                                     handleUpdateCategoria(cat.id, {
+                                       nome: editingCategoriaValues.nome,
+                                       icone: editingCategoriaValues.icone,
+                                       ordem: editingCategoriaValues.ordem
+                                     });
+                                   }}
+                                 >
+                                   Salvar
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                    onClick={() => {
+                                      setEditingCategoria(null);
+                                      setEditingCategoriaValues({ nome: '', icone: '', ordem: '' });
+                                    }}
+                                 >
+                                   Cancelar
+                                 </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingCategoria(cat.id);
+                                     setEditingCategoriaValues({
+                                       nome: cat.nome || '',
+                                       icone: cat.icone || '',
+                                       ordem: cat.ordem?.toString() || ''
+                                     });
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => {
+                                    if (confirm(`Tem certeza que deseja excluir a categoria "${cat.nome}"?`)) {
+                                      handleDeleteCategoria(cat.id, cat.nome);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
