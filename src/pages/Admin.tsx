@@ -29,7 +29,7 @@ const Admin = () => {
   const [procedimentos, setProcedimentos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [editingProcedure, setEditingProcedure] = useState(null);
-  const [editingValues, setEditingValues] = useState({ preco_min: '', preco_max: '' });
+  const [editingValues, setEditingValues] = useState({ nome: '', preco_min: '', preco_max: '' });
   const [newProcedureDialog, setNewProcedureDialog] = useState(false);
   const [selectedOrdem, setSelectedOrdem] = useState(null);
   const [ordemDialog, setOrdemDialog] = useState(false);
@@ -259,22 +259,36 @@ const Admin = () => {
     console.log("Iniciando atualização do procedimento:", procedureId, newData);
     
     try {
-      // Validar valores
-      if (!newData.preco_min || isNaN(parseFloat(newData.preco_min))) {
-        console.error("Preço mínimo inválido:", newData.preco_min);
-        toast({
-          title: "Erro",
-          description: "Preço mínimo deve ser um valor válido",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const updateData = {
-        preco_min: parseFloat(newData.preco_min),
-        preco_max: newData.preco_max && newData.preco_max !== '' ? parseFloat(newData.preco_max) : null,
+      const updateData: any = {
         updated_at: new Date().toISOString()
       };
+
+      // Se está editando nome
+      if (newData.nome !== undefined) {
+        if (!newData.nome.trim()) {
+          toast({
+            title: "Erro",
+            description: "Nome do procedimento é obrigatório",
+            variant: "destructive",
+          });
+          return;
+        }
+        updateData.nome = newData.nome.trim();
+      }
+
+      // Se está editando preços
+      if (newData.preco_min !== undefined) {
+        if (!newData.preco_min || isNaN(parseFloat(newData.preco_min))) {
+          toast({
+            title: "Erro",
+            description: "Preço mínimo deve ser um valor válido",
+            variant: "destructive",
+          });
+          return;
+        }
+        updateData.preco_min = parseFloat(newData.preco_min);
+        updateData.preco_max = newData.preco_max && newData.preco_max !== '' ? parseFloat(newData.preco_max) : null;
+      }
 
       console.log("Dados para atualização:", updateData);
 
@@ -298,16 +312,14 @@ const Admin = () => {
           proc.id === procedureId 
             ? { 
                 ...proc, 
-                preco_min: updateData.preco_min,
-                preco_max: updateData.preco_max,
-                updated_at: updateData.updated_at 
+                ...updateData
               }
             : proc
         )
       );
 
       setEditingProcedure(null);
-      setEditingValues({ preco_min: '', preco_max: '' });
+      setEditingValues({ nome: '', preco_min: '', preco_max: '' });
       
       toast({
         title: "Sucesso",
@@ -325,6 +337,40 @@ const Admin = () => {
       toast({
         title: "Erro",
         description: error.message || "Erro ao atualizar procedimento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteProcedure = async (procedureId: string, procedureName: string) => {
+    try {
+      const { error } = await supabase
+        .from("procedimentos")
+        .update({ ativo: false })
+        .eq("id", procedureId);
+
+      if (error) throw error;
+
+      // Remover do estado local
+      setProcedimentos(currentProcedimentos => 
+        currentProcedimentos.filter(proc => proc.id !== procedureId)
+      );
+      
+      toast({
+        title: "Sucesso",
+        description: `Procedimento "${procedureName}" foi desativado com sucesso!`,
+      });
+
+      // Recarregar dados em background
+      setTimeout(() => {
+        loadDashboardData();
+      }, 500);
+      
+    } catch (error: any) {
+      console.error("Erro ao excluir procedimento:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir procedimento",
         variant: "destructive",
       });
     }
@@ -1585,10 +1631,10 @@ const Admin = () => {
                                  <Button
                                    size="sm"
                                    variant="outline"
-                                   onClick={() => {
-                                     setEditingProcedure(null);
-                                     setEditingValues({ preco_min: '', preco_max: '' });
-                                   }}
+                                    onClick={() => {
+                                      setEditingProcedure(null);
+                                      setEditingValues({ nome: '', preco_min: '', preco_max: '' });
+                                    }}
                                  >
                                    Cancelar
                                  </Button>
@@ -1599,10 +1645,11 @@ const Admin = () => {
                                  variant="outline"
                                  onClick={() => {
                                    setEditingProcedure(proc.id);
-                                   setEditingValues({
-                                     preco_min: proc.preco_min?.toString() || '',
-                                     preco_max: proc.preco_max?.toString() || ''
-                                   });
+                                    setEditingValues({
+                                      nome: proc.nome || '',
+                                      preco_min: proc.preco_min?.toString() || '',
+                                      preco_max: proc.preco_max?.toString() || ''
+                                    });
                                  }}
                                >
                                  Editar
