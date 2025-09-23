@@ -29,6 +29,7 @@ const Admin = () => {
   const [procedimentos, setProcedimentos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [editingProcedure, setEditingProcedure] = useState(null);
+  const [editingValues, setEditingValues] = useState({ preco_min: '', preco_max: '' });
   const [newProcedureDialog, setNewProcedureDialog] = useState(false);
   const [selectedOrdem, setSelectedOrdem] = useState(null);
   const [ordemDialog, setOrdemDialog] = useState(false);
@@ -146,6 +147,7 @@ const Admin = () => {
   };
 
   const loadDashboardData = async () => {
+    console.log("Iniciando carregamento dos dados do dashboard...");
     try {
       // Carregar usuários
       const { data: usuariosData } = await supabase
@@ -166,13 +168,20 @@ const Admin = () => {
         .order("created_at", { ascending: false });
 
       // Carregar procedimentos e categorias
-      const { data: procedimentosData } = await supabase
+      console.log("Carregando procedimentos...");
+      const { data: procedimentosData, error: procError } = await supabase
         .from("procedimentos")
         .select(`
           *,
           categorias(nome)
         `)
         .order("nome");
+
+      if (procError) {
+        console.error("Erro ao carregar procedimentos:", procError);
+      } else {
+        console.log("Procedimentos carregados:", procedimentosData);
+      }
 
       const { data: categoriasData } = await supabase
         .from("categorias")
@@ -183,6 +192,9 @@ const Admin = () => {
       setOrdensServico(ordensData || []);
       setProcedimentos(procedimentosData || []);
       setCategorias(categoriasData || []);
+      
+      console.log("Estados atualizados com sucesso");
+      console.log("Total de procedimentos no estado:", procedimentosData?.length || 0);
 
       // Calcular estatísticas
       const totalUsuarios = usuariosData?.length || 0;
@@ -244,9 +256,12 @@ const Admin = () => {
   };
 
   const handleUpdateProcedure = async (procedureId: string, newData: any) => {
+    console.log("Iniciando atualização do procedimento:", procedureId, newData);
+    
     try {
       // Validar valores
       if (!newData.preco_min || isNaN(parseFloat(newData.preco_min))) {
+        console.error("Preço mínimo inválido:", newData.preco_min);
         toast({
           title: "Erro",
           description: "Preço mínimo deve ser um valor válido",
@@ -261,14 +276,23 @@ const Admin = () => {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      console.log("Dados para atualização:", updateData);
+
+      const { data, error } = await supabase
         .from("procedimentos")
         .update(updateData)
-        .eq("id", procedureId);
+        .eq("id", procedureId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro do Supabase:", error);
+        throw error;
+      }
+
+      console.log("Atualização bem-sucedida:", data);
 
       // Recarregar dados para garantir sincronização
+      console.log("Recarregando dados do dashboard...");
       await loadDashboardData();
       setEditingProcedure(null);
       
@@ -1494,65 +1518,75 @@ const Admin = () => {
                         <TableRow key={proc.id}>
                           <TableCell className="font-medium">{proc.nome}</TableCell>
                           <TableCell>{proc.categorias?.nome}</TableCell>
-                          <TableCell>
-                            {editingProcedure === proc.id ? (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                defaultValue={proc.preco_min}
-                                className="w-24"
-                                id={`min-${proc.id}`}
-                              />
-                            ) : (
-                              `R$ ${proc.preco_min?.toFixed(2)}`
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {editingProcedure === proc.id ? (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                defaultValue={proc.preco_max || ''}
-                                className="w-24"
-                                id={`max-${proc.id}`}
-                                placeholder="Opcional"
-                              />
-                            ) : (
-                              proc.preco_max ? `R$ ${proc.preco_max?.toFixed(2)}` : '-'
-                            )}
-                          </TableCell>
+                           <TableCell>
+                             {editingProcedure === proc.id ? (
+                               <Input
+                                 type="number"
+                                 step="0.01"
+                                 value={editingValues.preco_min}
+                                 onChange={(e) => setEditingValues({...editingValues, preco_min: e.target.value})}
+                                 className="w-24"
+                               />
+                             ) : (
+                               `R$ ${proc.preco_min?.toFixed(2)}`
+                             )}
+                           </TableCell>
+                           <TableCell>
+                             {editingProcedure === proc.id ? (
+                               <Input
+                                 type="number"
+                                 step="0.01"
+                                 value={editingValues.preco_max}
+                                 onChange={(e) => setEditingValues({...editingValues, preco_max: e.target.value})}
+                                 className="w-24"
+                                 placeholder="Opcional"
+                               />
+                             ) : (
+                               proc.preco_max ? `R$ ${proc.preco_max?.toFixed(2)}` : '-'
+                             )}
+                           </TableCell>
                           <TableCell>
                             {editingProcedure === proc.id ? (
                               <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    const minInput = document.getElementById(`min-${proc.id}`) as HTMLInputElement;
-                                    const maxInput = document.getElementById(`max-${proc.id}`) as HTMLInputElement;
-                                    handleUpdateProcedure(proc.id, {
-                                      preco_min: minInput.value,
-                                      preco_max: maxInput.value || null
-                                    });
-                                  }}
-                                >
-                                  Salvar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setEditingProcedure(null)}
-                                >
-                                  Cancelar
-                                </Button>
+                                 <Button
+                                   size="sm"
+                                   onClick={() => {
+                                     console.log("Botão Salvar clicado para procedimento:", proc.id);
+                                     console.log("Valores editados:", editingValues);
+                                     
+                                     handleUpdateProcedure(proc.id, {
+                                       preco_min: editingValues.preco_min,
+                                       preco_max: editingValues.preco_max || null
+                                     });
+                                   }}
+                                 >
+                                   Salvar
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => {
+                                     setEditingProcedure(null);
+                                     setEditingValues({ preco_min: '', preco_max: '' });
+                                   }}
+                                 >
+                                   Cancelar
+                                 </Button>
                               </div>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingProcedure(proc.id)}
-                              >
-                                Editar
-                              </Button>
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => {
+                                   setEditingProcedure(proc.id);
+                                   setEditingValues({
+                                     preco_min: proc.preco_min?.toString() || '',
+                                     preco_max: proc.preco_max?.toString() || ''
+                                   });
+                                 }}
+                               >
+                                 Editar
+                               </Button>
                             )}
                           </TableCell>
                         </TableRow>
