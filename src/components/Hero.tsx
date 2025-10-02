@@ -23,8 +23,8 @@ export const Hero = () => {
           <div className="text-center lg:text-left space-y-8">
             {/* Badge */}
             <Badge variant="secondary" className="inline-flex items-center gap-2 px-4 py-2 text-lg font-semibold">
-              <span className="text-2xl">🎯</span>
-              Até 60% OFF
+              <span className="text-2xl">📍</span>
+              ANÁPOLIS - GO
             </Badge>
 
             {/* Headlines */}
