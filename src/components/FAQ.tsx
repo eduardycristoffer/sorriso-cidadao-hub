@@ -80,7 +80,7 @@ export const FAQ = () => {
               Entre em contato conosco pelo WhatsApp e tire todas as suas dúvidas
             </p>
             <a 
-              href="https://wa.me/5562999999999" 
+              href="https://api.whatsapp.com/send/?phone=556231900695&text&type=phone_number&app_absent=0" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-success hover:bg-success-hover text-success-foreground px-6 py-3 rounded-lg font-semibold transition-colors"

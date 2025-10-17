@@ -61,7 +61,7 @@ export const Footer = () => {
             <ul className="space-y-2 text-sm text-primary-foreground/80">
               <li>
                 <a 
-                  href="https://wa.me/5562999999999" 
+                  href="https://api.whatsapp.com/send/?phone=556231900695&text&type=phone_number&app_absent=0" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="hover:text-secondary transition-colors"
