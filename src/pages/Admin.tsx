@@ -14,6 +14,7 @@ import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plu
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
+import { IconPicker, IconDisplay } from "@/components/IconPicker";
 
 const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1909,15 +1910,10 @@ const Admin = () => {
                       </div>
                       <div>
                         <Label htmlFor="icone">Ícone</Label>
-                        <Input
-                          id="icone"
+                        <IconPicker
                           value={newCategoria.icone}
-                          onChange={(e) => setNewCategoria({...newCategoria, icone: e.target.value})}
-                          placeholder="Ex: sparkles"
+                          onChange={(value) => setNewCategoria({...newCategoria, icone: value})}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Use nomes de ícones do Lucide React
-                        </p>
                       </div>
                       <div>
                         <Label htmlFor="ordem">Ordem (Opcional)</Label>
@@ -1975,14 +1971,15 @@ const Admin = () => {
                           </TableCell>
                           <TableCell>
                             {editingCategoria === cat.id ? (
-                              <Input
+                              <IconPicker
                                 value={editingCategoriaValues.icone}
-                                onChange={(e) => setEditingCategoriaValues({...editingCategoriaValues, icone: e.target.value})}
-                                className="w-full"
-                                placeholder="Ícone"
+                                onChange={(value) => setEditingCategoriaValues({...editingCategoriaValues, icone: value})}
                               />
                             ) : (
-                              cat.icone
+                              <div className="flex items-center gap-2">
+                                <IconDisplay name={cat.icone} className="h-5 w-5" />
+                                <span className="text-muted-foreground text-xs">{cat.icone}</span>
+                              </div>
                             )}
                           </TableCell>
                           <TableCell>
