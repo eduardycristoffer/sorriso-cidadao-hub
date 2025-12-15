@@ -158,48 +158,29 @@ const Admin = () => {
     });
   };
 
+  // Função auxiliar para chamar edge function admin
+  const callAdminOperation = async (action: string, data: any = {}) => {
+    const { data: response, error } = await supabase.functions.invoke('admin-operations', {
+      body: { action, data }
+    });
+    
+    if (error) throw error;
+    if (!response.success) throw new Error(response.error);
+    return response.data;
+  };
+
   const loadDashboardData = async () => {
     console.log("Iniciando carregamento dos dados do dashboard...");
     try {
-      // Carregar usuários
-      const { data: usuariosData } = await supabase
-        .from("usuarios")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Carregar dados via edge function (usando service_role)
+      const [usuariosData, ordensData, procedimentosData, categoriasData] = await Promise.all([
+        callAdminOperation('list_usuarios'),
+        callAdminOperation('list_ordens'),
+        callAdminOperation('list_procedimentos'),
+        callAdminOperation('list_categorias'),
+      ]);
 
-      // Carregar ordens de serviço
-      const { data: ordensData } = await supabase
-        .from("ordens_servico")
-        .select(`
-          *,
-          usuarios:cliente_id(nome, email, telefone),
-          clinicas:clinica_id(nome, cidade),
-          procedimentos:procedimento_id(nome),
-          dentistas:dentista_id(nome)
-        `)
-        .order("created_at", { ascending: false });
-
-      // Carregar procedimentos e categorias (apenas ativos)
-      console.log("Carregando procedimentos...");
-      const { data: procedimentosData, error: procError } = await supabase
-        .from("procedimentos")
-        .select(`
-          *,
-          categorias(nome)
-        `)
-        .eq("ativo", true)
-        .order("nome");
-
-      if (procError) {
-        console.error("Erro ao carregar procedimentos:", procError);
-      } else {
-        console.log("Procedimentos carregados:", procedimentosData);
-      }
-
-      const { data: categoriasData } = await supabase
-        .from("categorias")
-        .select("*")
-        .order("ordem");
+      console.log("Dados carregados via edge function");
 
       setUsuarios(usuariosData || []);
       setOrdensServico(ordensData || []);
@@ -211,13 +192,13 @@ const Admin = () => {
 
       // Calcular estatísticas
       const totalUsuarios = usuariosData?.length || 0;
-      const assinaturasAtivas = usuariosData?.filter(u => u.assinatura_status === 'ATIVA').length || 0;
+      const assinaturasAtivas = usuariosData?.filter((u: any) => u.assinatura_status === 'ATIVA').length || 0;
       const totalOS = ordensData?.length || 0;
-      const ordensConfirmadas = ordensData?.filter(o => o.status === 'confirmada').length || 0;
-      const ordensPendentes = ordensData?.filter(o => o.status === 'solicitada' || o.status === 'em_analise').length || 0;
-      const ordensCanceladas = ordensData?.filter(o => o.status === 'cancelada').length || 0;
-      const ordensRealizadas = ordensData?.filter(o => o.status === 'realizada').length || 0;
-      const ordensEmAnalise = ordensData?.filter(o => o.status === 'em_analise').length || 0;
+      const ordensConfirmadas = ordensData?.filter((o: any) => o.status === 'confirmada').length || 0;
+      const ordensPendentes = ordensData?.filter((o: any) => o.status === 'solicitada' || o.status === 'em_analise').length || 0;
+      const ordensCanceladas = ordensData?.filter((o: any) => o.status === 'cancelada').length || 0;
+      const ordensRealizadas = ordensData?.filter((o: any) => o.status === 'realizada').length || 0;
+      const ordensEmAnalise = ordensData?.filter((o: any) => o.status === 'em_analise').length || 0;
       const faturamentoMensal = assinaturasAtivas * 59.90;
       const faturamentoLiquido = faturamentoMensal * 0.85; // Considerando 15% de taxas
 
@@ -318,19 +299,13 @@ const Admin = () => {
 
       console.log("Dados para atualização:", updateData);
 
-      // Atualizar no banco de dados
-      const { data, error } = await supabase
-        .from("procedimentos")
-        .update(updateData)
-        .eq("id", procedureId)
-        .select();
+      // Atualizar via edge function
+      await callAdminOperation('update_procedimento', {
+        id: procedureId,
+        ...updateData
+      });
 
-      if (error) {
-        console.error("Erro do Supabase:", error);
-        throw error;
-      }
-
-      console.log("Atualização bem-sucedida:", data);
+      console.log("Atualização bem-sucedida");
 
       // Atualizar estado local imediatamente
       setProcedimentos(currentProcedimentos => 
@@ -370,12 +345,7 @@ const Admin = () => {
 
   const handleDeleteProcedure = async (procedureId: string, procedureName: string) => {
     try {
-      const { error } = await supabase
-        .from("procedimentos")
-        .update({ ativo: false })
-        .eq("id", procedureId);
-
-      if (error) throw error;
+      await callAdminOperation('delete_procedimento', { id: procedureId });
 
       // Remover do estado local
       setProcedimentos(currentProcedimentos => 
@@ -414,15 +384,11 @@ const Admin = () => {
         return;
       }
 
-      const { error } = await supabase
-        .from("categorias")
-        .insert({
-          nome: newCategoria.nome,
-          icone: newCategoria.icone,
-          ordem: newCategoria.ordem ? parseInt(newCategoria.ordem) : categorias.length + 1,
-        });
-
-      if (error) throw error;
+      await callAdminOperation('create_categoria', {
+        nome: newCategoria.nome,
+        icone: newCategoria.icone,
+        ordem: newCategoria.ordem ? parseInt(newCategoria.ordem) : categorias.length + 1,
+      });
 
       await loadDashboardData();
       setNewCategoriaDialog(false);
@@ -433,6 +399,7 @@ const Admin = () => {
         description: "Categoria criada com sucesso!",
       });
     } catch (error: any) {
+      console.error("Erro ao criar categoria:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao criar categoria",
@@ -475,12 +442,10 @@ const Admin = () => {
         updateData.ordem = parseInt(newData.ordem) || 1;
       }
 
-      const { error } = await supabase
-        .from("categorias")
-        .update(updateData)
-        .eq("id", categoriaId);
-
-      if (error) throw error;
+      await callAdminOperation('update_categoria', {
+        id: categoriaId,
+        ...updateData
+      });
 
       setCategorias(currentCategorias => 
         currentCategorias.map(cat => 
@@ -514,15 +479,11 @@ const Admin = () => {
   const handleDeleteCategoria = async (categoriaId: string, categoriaNome: string) => {
     try {
       // Verificar se existem procedimentos usando esta categoria
-      const { data: procedimentosUsandoCategoria, error: checkError } = await supabase
-        .from("procedimentos")
-        .select("id")
-        .eq("categoria_id", categoriaId)
-        .eq("ativo", true);
+      const procedimentosUsandoCategoria = procedimentos.filter(
+        (p: any) => p.categoria_id === categoriaId
+      );
 
-      if (checkError) throw checkError;
-
-      if (procedimentosUsandoCategoria && procedimentosUsandoCategoria.length > 0) {
+      if (procedimentosUsandoCategoria.length > 0) {
         toast({
           title: "Erro",
           description: `Não é possível excluir a categoria "${categoriaNome}" pois existem ${procedimentosUsandoCategoria.length} procedimento(s) usando ela.`,
@@ -531,12 +492,7 @@ const Admin = () => {
         return;
       }
 
-      const { error } = await supabase
-        .from("categorias")
-        .delete()
-        .eq("id", categoriaId);
-
-      if (error) throw error;
+      await callAdminOperation('delete_categoria', { id: categoriaId });
 
       setCategorias(currentCategorias => 
         currentCategorias.filter(cat => cat.id !== categoriaId)
@@ -581,18 +537,13 @@ const Admin = () => {
         return;
       }
 
-      const { error } = await supabase
-        .from("procedimentos")
-        .insert({
-          nome: newProcedure.nome,
-          categoria_id: newProcedure.categoria_id,
-          preco_min: parseFloat(newProcedure.preco_min),
-          preco_max: newProcedure.preco_max && newProcedure.preco_max !== '' ? parseFloat(newProcedure.preco_max) : null,
-          observacoes: newProcedure.observacoes || null,
-          ativo: true
-        });
-
-      if (error) throw error;
+      await callAdminOperation('create_procedimento', {
+        nome: newProcedure.nome,
+        categoria_id: newProcedure.categoria_id,
+        preco_min: parseFloat(newProcedure.preco_min),
+        preco_max: newProcedure.preco_max && newProcedure.preco_max !== '' ? parseFloat(newProcedure.preco_max) : null,
+        observacoes: newProcedure.observacoes || null,
+      });
 
       // Recarregar dados e limpar form
       await loadDashboardData();
@@ -621,12 +572,7 @@ const Admin = () => {
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     try {
-      const { error } = await supabase
-        .from("usuarios")
-        .update({ role: newRole })
-        .eq("id", userId);
-
-      if (error) throw error;
+      await callAdminOperation('update_usuario', { id: userId, role: newRole });
 
       loadDashboardData();
       toast({
@@ -644,12 +590,7 @@ const Admin = () => {
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from("usuarios")
-        .update({ ativo: !currentStatus })
-        .eq("id", userId);
-
-      if (error) throw error;
+      await callAdminOperation('update_usuario', { id: userId, ativo: !currentStatus });
 
       loadDashboardData();
       toast({
@@ -667,17 +608,12 @@ const Admin = () => {
 
   const handleUpdateOrdemStatus = async (ordemId: string, newStatus: string, dataConfirmada?: string) => {
     try {
-      const updateData: any = { status: newStatus };
+      const updateData: any = { id: ordemId, status: newStatus };
       if (dataConfirmada) {
         updateData.data_confirmada = dataConfirmada;
       }
 
-      const { error } = await supabase
-        .from("ordens_servico")
-        .update(updateData)
-        .eq("id", ordemId);
-
-      if (error) throw error;
+      await callAdminOperation('update_ordem', updateData);
 
       loadDashboardData();
       setOrdemDialog(false);

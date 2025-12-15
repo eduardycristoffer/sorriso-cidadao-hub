@@ -2,3 +2,6 @@ project_id = "vumvzqpczpqgzjsamakq"
 
 [functions.checkout-webhook]
 verify_jwt = false
+
+[functions.admin-operations]
+verify_jwt = false
