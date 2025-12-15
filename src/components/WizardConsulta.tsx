@@ -21,8 +21,8 @@ interface Clinica {
   id: string;
   nome: string;
   cidade: string;
-  endereco: string;
-  horario_funcionamento: string;
+  endereco: string | null;
+  telefone: string | null;
 }
 
 interface WizardConsultaProps {
@@ -89,8 +89,7 @@ const WizardConsulta = ({
     try {
       const { data, error } = await supabase
         .from("clinicas")
-        .select("id, nome, cidade, endereco, horario_funcionamento")
-        .eq("status", "ATIVA")
+        .select("id, nome, cidade, endereco, telefone")
         .eq("ativo", true)
         .order("nome");
 
@@ -150,8 +149,7 @@ const WizardConsulta = ({
           procedimento_id: procedimento.id,
           clinica_id: clinica.id,
           data_solicitada: new Date(dataConsulta).toISOString(),
-          periodo_preferido: periodoConsulta,
-          observacoes_cliente: observacoes,
+          observacoes_cliente: `Período preferido: ${periodoConsulta}. ${observacoes}`,
           status: "solicitada"
         });
 
@@ -298,12 +296,14 @@ const WizardConsulta = ({
                           <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
                             <p className="flex items-start gap-1">
                               <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                              <span className="break-words">{cli.cidade} - {cli.endereco}</span>
+                              <span className="break-words">{cli.cidade}{cli.endereco ? ` - ${cli.endereco}` : ''}</span>
                             </p>
-                            <p className="flex items-start gap-1">
-                              <Clock className="h-3 w-3 mt-0.5 shrink-0" />
-                              <span className="break-words">{cli.horario_funcionamento}</span>
-                            </p>
+                            {cli.telefone && (
+                              <p className="flex items-start gap-1">
+                                <Clock className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span className="break-words">{cli.telefone}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                         {clinica?.id === cli.id && (
