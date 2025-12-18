@@ -18,7 +18,7 @@ interface VegaPaymentResponse {
 }
 
 const VEGA_API_URL = 'https://checkout.sorrisocidadao.com/api/checkout';
-const VEGA_API_KEY = 'hs9K6eCmJZMbxgD64SvvBa8PiVTWtRL2'; // API key do Vega Checkout
+const VEGA_API_KEY = 'SlybOxqFhLTW40cfyDEqC8DCfbqPi8ggZuSCj9IfGzpgLO07dyhvPqd7svBeAGIj';
 
 export async function createVegaPayment(request: VegaPaymentRequest): Promise<VegaPaymentResponse> {
   console.log('[VegaCheckout Frontend] Iniciando chamada à API Vega...', request);
