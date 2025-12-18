@@ -245,11 +245,13 @@ export type Database = {
           data_solicitada: string
           dentista_id: string | null
           id: string
+          nome_procedimento_manual: string | null
           observacoes_cliente: string | null
           observacoes_internas: string | null
           procedimento_id: string
           status: string | null
           updated_at: string
+          valor_pago: number | null
         }
         Insert: {
           cliente_id: string
@@ -259,11 +261,13 @@ export type Database = {
           data_solicitada: string
           dentista_id?: string | null
           id?: string
+          nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
           procedimento_id: string
           status?: string | null
           updated_at?: string
+          valor_pago?: number | null
         }
         Update: {
           cliente_id?: string
@@ -273,11 +277,13 @@ export type Database = {
           data_solicitada?: string
           dentista_id?: string | null
           id?: string
+          nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
           procedimento_id?: string
           status?: string | null
           updated_at?: string
+          valor_pago?: number | null
         }
         Relationships: [
           {
