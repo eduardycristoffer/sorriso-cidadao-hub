@@ -248,7 +248,7 @@ export type Database = {
           nome_procedimento_manual: string | null
           observacoes_cliente: string | null
           observacoes_internas: string | null
-          procedimento_id: string
+          procedimento_id: string | null
           status: string | null
           updated_at: string
           valor_pago: number | null
@@ -264,7 +264,7 @@ export type Database = {
           nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
-          procedimento_id: string
+          procedimento_id?: string | null
           status?: string | null
           updated_at?: string
           valor_pago?: number | null
@@ -280,7 +280,7 @@ export type Database = {
           nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
-          procedimento_id?: string
+          procedimento_id?: string | null
           status?: string | null
           updated_at?: string
           valor_pago?: number | null
