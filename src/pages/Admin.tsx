@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, CreditCard, UserPlus, Copy } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -76,19 +76,6 @@ const Admin = () => {
     password: ''
   });
 
-  // Estados para Pagamentos (Vega Checkout)
-  const [paymentLinks, setPaymentLinks] = useState([]);
-  const [newPaymentDialog, setNewPaymentDialog] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [newPayment, setNewPayment] = useState({
-    nome: '',
-    descricao: '',
-    valor: '',
-    cliente_email: '',
-    cliente_nome: ''
-  });
-  const [createdPayment, setCreatedPayment] = useState<any>(null);
-
   // Estados para Dependentes
   const [selectedUsuario, setSelectedUsuario] = useState<any>(null);
   const [dependentesDialog, setDependentesDialog] = useState(false);
@@ -101,6 +88,8 @@ const Admin = () => {
     data_nascimento: '',
     parentesco: ''
   });
+  const [addDependenteDialogOpen, setAddDependenteDialogOpen] = useState(false);
+  const [selectedUsuarioIdForDependente, setSelectedUsuarioIdForDependente] = useState('');
 
   useEffect(() => {
     checkAuth();
@@ -200,12 +189,11 @@ const Admin = () => {
     console.log("Iniciando carregamento dos dados do dashboard...");
     try {
       // Carregar dados via edge function (usando service_role)
-      const [usuariosData, ordensData, procedimentosData, categoriasData, paymentLinksData] = await Promise.all([
+      const [usuariosData, ordensData, procedimentosData, categoriasData] = await Promise.all([
         callAdminOperation('list_usuarios'),
         callAdminOperation('list_ordens'),
         callAdminOperation('list_procedimentos'),
         callAdminOperation('list_categorias'),
-        callAdminOperation('list_payment_links'),
       ]);
 
       console.log("Dados carregados via edge function");
@@ -214,7 +202,6 @@ const Admin = () => {
       setOrdensServico(ordensData || []);
       setProcedimentos(procedimentosData || []);
       setCategorias(categoriasData || []);
-      setPaymentLinks(paymentLinksData || []);
       
       console.log("Estados atualizados com sucesso");
       console.log("Total de procedimentos no estado:", procedimentosData?.length || 0);
@@ -739,79 +726,6 @@ const Admin = () => {
     }
   };
 
-  // Funções para Pagamentos (Vega Checkout via Edge Function)
-  const handleCreatePayment = async () => {
-    try {
-      if (!newPayment.nome || !newPayment.valor) {
-        toast({
-          title: "Erro",
-          description: "Nome e valor são obrigatórios",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setPaymentLoading(true);
-
-      const valorEmCentavos = Math.round(parseFloat(newPayment.valor) * 100);
-
-      // Chamar Edge Function que usa IP fixo do Supabase
-      console.log('[Admin] Chamando Edge Function create-payment-link...');
-      const { data: response, error } = await supabase.functions.invoke('create-payment-link', {
-        body: {
-          nome: newPayment.nome,
-          descricao: newPayment.descricao || null,
-          valor: valorEmCentavos,
-          cliente_email: newPayment.cliente_email || null,
-          cliente_nome: newPayment.cliente_nome || null,
-        }
-      });
-
-      console.log('[Admin] Resposta Edge Function:', response);
-
-      if (error) throw error;
-      if (!response.success) throw new Error(response.error);
-
-      setCreatedPayment(response.data);
-
-      toast({
-        title: response.data.vega_integrated ? "Sucesso - PIX Gerado!" : "Link criado (modo local)",
-        description: response.data.message,
-        variant: response.data.vega_integrated ? "default" : "destructive",
-      });
-
-      loadDashboardData();
-    } catch (error: any) {
-      console.error("Erro ao criar pagamento:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao criar link de pagamento",
-        variant: "destructive",
-      });
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copiado!",
-      description: "Código PIX copiado para a área de transferência",
-    });
-  };
-
-  const getPaymentStatusBadge = (status: string) => {
-    const statusMap = {
-      'pending': { label: 'Pendente', variant: 'secondary' as const },
-      'paid': { label: 'Pago', variant: 'default' as const },
-      'failed': { label: 'Falhou', variant: 'destructive' as const },
-    };
-    
-    const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
-  };
-
   // Funções para Dependentes
   const loadDependentes = async (usuarioId: string) => {
     try {
@@ -862,6 +776,52 @@ const Admin = () => {
       setNewDependenteDialog(false);
       setNewDependente({ nome: '', cpf: '', data_nascimento: '', parentesco: '' });
       await loadDependentes(selectedUsuario.id);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar dependente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para adicionar dependente direto (com seleção de usuário)
+  const handleAddDependenteDirect = async () => {
+    try {
+      if (!selectedUsuarioIdForDependente) {
+        toast({
+          title: "Erro",
+          description: "Selecione um usuário pagante",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!newDependente.nome) {
+        toast({
+          title: "Erro",
+          description: "Nome do dependente é obrigatório",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await callAdminOperation('create_dependente', {
+        usuario_id: selectedUsuarioIdForDependente,
+        nome: newDependente.nome,
+        cpf: newDependente.cpf || null,
+        data_nascimento: newDependente.data_nascimento || null,
+        parentesco: newDependente.parentesco || null,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Dependente adicionado com sucesso!",
+      });
+
+      setAddDependenteDialogOpen(false);
+      setNewDependente({ nome: '', cpf: '', data_nascimento: '', parentesco: '' });
+      setSelectedUsuarioIdForDependente('');
     } catch (error: any) {
       toast({
         title: "Erro",
@@ -1028,7 +988,7 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
@@ -1040,10 +1000,6 @@ const Admin = () => {
             <TabsTrigger value="ordens">
               <FileText className="h-4 w-4 mr-2" />
               Ordens
-            </TabsTrigger>
-            <TabsTrigger value="pagamentos">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pagamentos
             </TabsTrigger>
             <TabsTrigger value="vendas">
               <DollarSign className="h-4 w-4 mr-2" />
@@ -1262,93 +1218,186 @@ const Admin = () => {
                     Gerenciar usuários, roles e status de ativação
                   </CardDescription>
                 </div>
-                <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="primary_cta">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Usuário
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Criar Novo Usuário</DialogTitle>
-                      <DialogDescription>
-                        Preencha os dados do novo usuário
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="nome">Nome Completo</Label>
-                        <Input
-                          id="nome"
-                          value={newUser.nome}
-                          onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })}
-                          placeholder="Digite o nome completo"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={newUser.email}
-                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                          placeholder="Digite o email"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Senha</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={newUser.password}
-                          onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                          placeholder="Digite a senha"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telefone">Telefone</Label>
-                        <Input
-                          id="telefone"
-                          value={newUser.telefone}
-                          onChange={(e) => setNewUser({ ...newUser, telefone: e.target.value })}
-                          placeholder="Digite o telefone"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF</Label>
-                        <Input
-                          id="cpf"
-                          value={newUser.cpf}
-                          onChange={(e) => setNewUser({ ...newUser, cpf: e.target.value })}
-                          placeholder="Digite o CPF"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="role">Tipo de Usuário</Label>
-                        <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cliente">Cliente</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="operador">Operador</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setCreateUserDialog(false)}>
-                        Cancelar
+                <div className="flex gap-2">
+                  {/* Botão Adicionar Dependente */}
+                  <Dialog open={addDependenteDialogOpen} onOpenChange={setAddDependenteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Adicionar Dependente
                       </Button>
-                      <Button onClick={handleCreateUser} variant="primary_cta">
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Adicionar Dependente</DialogTitle>
+                        <DialogDescription>
+                          Selecione o usuário pagante e preencha os dados do dependente
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Usuário Pagante *</Label>
+                          <Select value={selectedUsuarioIdForDependente} onValueChange={setSelectedUsuarioIdForDependente}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o usuário" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map((u: any) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.nome} - {u.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Nome do Dependente *</Label>
+                          <Input
+                            value={newDependente.nome}
+                            onChange={(e) => setNewDependente({...newDependente, nome: e.target.value})}
+                            placeholder="Digite o nome completo"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>CPF</Label>
+                          <Input
+                            value={newDependente.cpf}
+                            onChange={(e) => setNewDependente({...newDependente, cpf: e.target.value})}
+                            placeholder="000.000.000-00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Data de Nascimento</Label>
+                          <Input
+                            type="date"
+                            value={newDependente.data_nascimento}
+                            onChange={(e) => setNewDependente({...newDependente, data_nascimento: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Parentesco</Label>
+                          <Select 
+                            value={newDependente.parentesco} 
+                            onValueChange={(value) => setNewDependente({...newDependente, parentesco: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o parentesco" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="filho">Filho(a)</SelectItem>
+                              <SelectItem value="conjuge">Cônjuge</SelectItem>
+                              <SelectItem value="pai">Pai</SelectItem>
+                              <SelectItem value="mae">Mãe</SelectItem>
+                              <SelectItem value="irmao">Irmão(ã)</SelectItem>
+                              <SelectItem value="outro">Outro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                          setAddDependenteDialogOpen(false);
+                          setNewDependente({ nome: '', cpf: '', data_nascimento: '', parentesco: '' });
+                          setSelectedUsuarioIdForDependente('');
+                        }}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleAddDependenteDirect} variant="primary_cta">
+                          Adicionar Dependente
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Botão Criar Usuário */}
+                  <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="primary_cta">
+                        <Plus className="h-4 w-4 mr-2" />
                         Criar Usuário
                       </Button>
-                    </DialogFooter>
-                   </DialogContent>
-                 </Dialog>
-               </CardHeader>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Criar Novo Usuário</DialogTitle>
+                        <DialogDescription>
+                          Preencha os dados do novo usuário
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nome">Nome Completo</Label>
+                          <Input
+                            id="nome"
+                            value={newUser.nome}
+                            onChange={(e) => setNewUser({ ...newUser, nome: e.target.value })}
+                            placeholder="Digite o nome completo"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newUser.email}
+                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                            placeholder="Digite o email"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password">Senha</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={newUser.password}
+                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                            placeholder="Digite a senha"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="telefone">Telefone</Label>
+                          <Input
+                            id="telefone"
+                            value={newUser.telefone}
+                            onChange={(e) => setNewUser({ ...newUser, telefone: e.target.value })}
+                            placeholder="Digite o telefone"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            value={newUser.cpf}
+                            onChange={(e) => setNewUser({ ...newUser, cpf: e.target.value })}
+                            placeholder="Digite o CPF"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="role">Tipo de Usuário</Label>
+                          <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="cliente">Cliente</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="operador">Operador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateUserDialog(false)}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleCreateUser} variant="primary_cta">
+                          Criar Usuário
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -1781,129 +1830,6 @@ const Admin = () => {
             </div>
           </TabsContent>
 
-          {/* Pagamentos - Vega Checkout */}
-          <TabsContent value="pagamentos" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Criar Link de Pagamento</CardTitle>
-                  <CardDescription>Gere cobranças PIX via Vega Checkout</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Produto/Serviço</Label>
-                    <Input
-                      value={newPayment.nome}
-                      onChange={(e) => setNewPayment({...newPayment, nome: e.target.value})}
-                      placeholder="Ex: Assinatura Mensal"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Descrição (Opcional)</Label>
-                    <Textarea
-                      value={newPayment.descricao}
-                      onChange={(e) => setNewPayment({...newPayment, descricao: e.target.value})}
-                      placeholder="Descrição do produto..."
-                      rows={2}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Valor (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newPayment.valor}
-                      onChange={(e) => setNewPayment({...newPayment, valor: e.target.value})}
-                      placeholder="59.90"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome do Cliente (Opcional)</Label>
-                      <Input
-                        value={newPayment.cliente_nome}
-                        onChange={(e) => setNewPayment({...newPayment, cliente_nome: e.target.value})}
-                        placeholder="Nome"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Email do Cliente (Opcional)</Label>
-                      <Input
-                        type="email"
-                        value={newPayment.cliente_email}
-                        onChange={(e) => setNewPayment({...newPayment, cliente_email: e.target.value})}
-                        placeholder="email@exemplo.com"
-                      />
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={handleCreatePayment} 
-                    disabled={paymentLoading}
-                    className="w-full"
-                    variant="primary_cta"
-                  >
-                    {paymentLoading ? "Gerando..." : "Gerar Link PIX"}
-                  </Button>
-
-                  {createdPayment && createdPayment.pix_code && (
-                    <div className="mt-4 p-4 bg-muted rounded-lg space-y-3">
-                      <div className="text-sm font-medium text-green-600">✓ PIX gerado com sucesso!</div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Código PIX Copia e Cola:</Label>
-                        <div className="flex gap-2">
-                          <Input value={createdPayment.pix_code} readOnly className="text-xs" />
-                          <Button size="sm" variant="outline" onClick={() => copyToClipboard(createdPayment.pix_code)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      {createdPayment.qr_code_url && (
-                        <div className="text-center">
-                          <img src={createdPayment.qr_code_url} alt="QR Code PIX" className="mx-auto w-48 h-48" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Links</CardTitle>
-                  <CardDescription>Links de pagamento criados</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {paymentLinks.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-4">Nenhum link criado ainda</p>
-                    ) : (
-                      paymentLinks.map((link: any) => (
-                        <div key={link.id} className="p-3 border rounded-lg space-y-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-medium">{link.nome}</div>
-                              <div className="text-sm text-muted-foreground">
-                                R$ {(link.valor / 100).toFixed(2)}
-                              </div>
-                            </div>
-                            {getPaymentStatusBadge(link.status)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(link.created_at).toLocaleString('pt-BR')}
-                          </div>
-                          {link.pix_code && (
-                            <Button size="sm" variant="outline" className="w-full" onClick={() => copyToClipboard(link.pix_code)}>
-                              <Copy className="h-3 w-3 mr-2" /> Copiar PIX
-                            </Button>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
 
           {/* Procedimentos */}
           <TabsContent value="procedimentos" className="space-y-6">
