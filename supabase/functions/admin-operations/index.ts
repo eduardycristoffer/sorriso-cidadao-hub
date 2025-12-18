@@ -415,6 +415,24 @@ serve(async (req) => {
         console.log('Configuração atualizada:', updatedConfig);
         break;
 
+      // HISTÓRICO DE PROCEDIMENTOS
+      case 'list_historico_procedimentos':
+        const { data: ordensUsuario, error: listOrdensUsuarioError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            *,
+            procedimentos:procedimento_id(nome, preco_min, preco_max),
+            clinicas:clinica_id(nome, cidade),
+            dentistas:dentista_id(nome)
+          `)
+          .eq('cliente_id', data.usuario_id)
+          .order('created_at', { ascending: false });
+        
+        if (listOrdensUsuarioError) throw listOrdensUsuarioError;
+        result = ordensUsuario;
+        console.log('Histórico de procedimentos:', ordensUsuario?.length);
+        break;
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }
