@@ -53,6 +53,8 @@ interface Procedimento {
 interface OrdemServico {
   id: string;
   data_solicitada: string;
+  data_proposta_admin: string | null;
+  resposta_cliente: string | null;
   status: string;
   observacoes_cliente: string;
   procedimento_nome: string | null;
@@ -245,12 +247,40 @@ const Cliente = () => {
         description: "Sua consulta foi cancelada com sucesso.",
       });
 
-      loadData(); // Reload data to show updated status
+      loadData();
     } catch (error) {
       console.error("Error canceling consultation:", error);
       toast({
         title: "Erro",
         description: "Erro ao cancelar consulta. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleResponderProposta = async (ordemId: string, resposta: 'aprovado' | 'rejeitado', novaData?: string) => {
+    try {
+      const { error } = await supabase.rpc('responder_proposta_consulta', {
+        p_ordem_id: ordemId,
+        p_resposta: resposta,
+        p_nova_data_sugerida: novaData || null
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: resposta === 'aprovado' ? "Consulta confirmada!" : "Nova data solicitada",
+        description: resposta === 'aprovado' 
+          ? "Sua consulta foi confirmada com sucesso." 
+          : "Solicitamos uma nova data. Aguarde nosso retorno.",
+      });
+
+      loadData();
+    } catch (error: any) {
+      console.error("Error responding:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao responder. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -634,7 +664,7 @@ const Cliente = () => {
                     </div>
                   ) : (
                     ordens.map((ordem) => (
-                      <Card key={ordem.id} className="p-4">
+                      <Card key={ordem.id} className={`p-4 ${ordem.status === 'aguardando_cliente' ? 'border-primary border-2 bg-primary/5' : ''}`}>
                         <div className="space-y-3">
                           <div className="flex items-start justify-between">
                             <div className="space-y-1">
@@ -647,9 +677,10 @@ const Cliente = () => {
                               ordem.status === "confirmada" ? "default" :
                               ordem.status === "realizada" ? "secondary" :
                               ordem.status === "cancelada" ? "destructive" :
+                              ordem.status === "aguardando_cliente" ? "default" :
                               "outline"
                             } className="text-xs">
-                              {ordem.status}
+                              {ordem.status === 'aguardando_cliente' ? 'Aguardando Você' : ordem.status}
                             </Badge>
                           </div>
                           
@@ -663,6 +694,22 @@ const Cliente = () => {
                               <span>{new Date(ordem.data_solicitada).toLocaleDateString("pt-BR")}</span>
                             </div>
                           </div>
+
+                          {/* Proposta do Admin */}
+                          {ordem.status === 'aguardando_cliente' && ordem.data_proposta_admin && (
+                            <div className="p-3 bg-primary/10 rounded-lg space-y-3">
+                              <p className="text-sm font-medium text-primary">📅 Data proposta pela clínica:</p>
+                              <p className="text-lg font-bold">{new Date(ordem.data_proposta_admin).toLocaleString("pt-BR")}</p>
+                              <div className="flex gap-2">
+                                <Button size="sm" className="flex-1" onClick={() => handleResponderProposta(ordem.id, 'aprovado')}>
+                                  <CheckCircle2 className="h-4 w-4 mr-1" /> Aceitar
+                                </Button>
+                                <Button size="sm" variant="outline" className="flex-1" onClick={() => handleResponderProposta(ordem.id, 'rejeitado')}>
+                                  <XCircle className="h-4 w-4 mr-1" /> Nova Data
+                                </Button>
+                              </div>
+                            </div>
+                          )}
 
                           {ordem.status === "solicitada" && (
                             <div className="pt-2 border-t">
