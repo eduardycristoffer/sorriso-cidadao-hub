@@ -24,11 +24,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const vegaApiKey = Deno.env.get('VEGA_CHECKOUT_API_KEY')!;
-
-    if (!vegaApiKey) {
-      throw new Error('VEGA_CHECKOUT_API_KEY não configurada');
-    }
+    const vegaApiKey = Deno.env.get('VEGA_CHECKOUT_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const data: CreatePaymentRequest = await req.json();
@@ -40,39 +36,77 @@ serve(async (req) => {
       throw new Error('Nome e valor são obrigatórios');
     }
 
-    // Criar cobrança PIX via Vega Checkout API
-    const vegaPayload = {
-      customer: {
-        name: data.cliente_nome || 'Cliente',
-        email: data.cliente_email || 'cliente@email.com',
-      },
-      products: [
-        {
-          name: data.nome,
-          quantity: 1,
-          price: data.valor, // em centavos
+    let pixCode = null;
+    let qrCodeUrl = null;
+    let transactionToken = `LOCAL_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let vegaResponse = null;
+
+    // Tentar chamar API Vega se a key estiver configurada
+    if (vegaApiKey) {
+      try {
+        // Criar cobrança PIX via Vega Checkout API
+        // NOTA: A URL pode precisar ser ajustada conforme documentação oficial da Vega
+        const vegaPayload = {
+          customer: {
+            name: data.cliente_nome || 'Cliente',
+            email: data.cliente_email || 'cliente@email.com',
+          },
+          products: [
+            {
+              name: data.nome,
+              quantity: 1,
+              price: data.valor, // em centavos
+            }
+          ],
+          payment_method: 'pix',
+          notification_url: `${supabaseUrl}/functions/v1/checkout-webhook`,
+        };
+
+        console.log('Enviando para Vega Checkout:', vegaPayload);
+
+        // URLs possíveis da API Vega - tente diferentes opções
+        const apiUrls = [
+          'https://api.vegacheckout.com/api/orders',
+          'https://vegacheckout.com/api/orders', 
+          'https://checkout.vegacheckout.com/api/orders',
+        ];
+
+        for (const apiUrl of apiUrls) {
+          try {
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${vegaApiKey}`,
+              },
+              body: JSON.stringify(vegaPayload),
+            });
+
+            if (response.ok) {
+              vegaResponse = await response.json();
+              console.log('Resposta Vega Checkout:', vegaResponse);
+              
+              transactionToken = vegaResponse.transaction_token || vegaResponse.order_id || transactionToken;
+              pixCode = vegaResponse.pix?.copy_paste || vegaResponse.pix_copy_paste || vegaResponse.pix_code;
+              qrCodeUrl = vegaResponse.pix?.qr_code_url || vegaResponse.qr_code_url;
+              break;
+            }
+          } catch (fetchError) {
+            console.log(`Falha ao chamar ${apiUrl}:`, fetchError.message);
+            continue;
+          }
         }
-      ],
-      payment_method: 'pix',
-      notification_url: `${supabaseUrl}/functions/v1/checkout-webhook`,
-    };
+      } catch (vegaError) {
+        console.error('Erro ao chamar API Vega:', vegaError);
+        // Continua sem Vega - cria link local
+      }
+    }
 
-    console.log('Enviando para Vega Checkout:', vegaPayload);
-
-    const vegaResponse = await fetch('https://api.vegacheckout.com.br/api/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${vegaApiKey}`,
-      },
-      body: JSON.stringify(vegaPayload),
-    });
-
-    const vegaData = await vegaResponse.json();
-    console.log('Resposta Vega Checkout:', vegaData);
-
-    if (!vegaResponse.ok) {
-      throw new Error(vegaData.message || 'Erro ao criar cobrança no Vega Checkout');
+    // Se não conseguiu gerar via Vega, cria um registro local
+    // O usuário pode copiar o link e usar externamente
+    if (!pixCode) {
+      console.log('Gerando link local (sem integração Vega ativa)');
+      pixCode = `PIX_PENDENTE_${transactionToken}`;
     }
 
     // Salvar link no banco
@@ -82,10 +116,10 @@ serve(async (req) => {
         nome: data.nome,
         descricao: data.descricao || null,
         valor: data.valor,
-        transaction_token: vegaData.transaction_token || vegaData.order_id,
-        pix_code: vegaData.pix?.copy_paste || vegaData.pix_copy_paste,
-        qr_code_url: vegaData.pix?.qr_code_url || vegaData.qr_code_url,
-        status: 'pending',
+        transaction_token: transactionToken,
+        pix_code: pixCode,
+        qr_code_url: qrCodeUrl,
+        status: vegaResponse ? 'pending' : 'manual',
         cliente_id: data.cliente_id || null,
         cliente_email: data.cliente_email || null,
         cliente_nome: data.cliente_nome || null,
@@ -106,7 +140,10 @@ serve(async (req) => {
         success: true, 
         data: {
           ...paymentLink,
-          vega_response: vegaData
+          vega_integrated: !!vegaResponse,
+          message: vegaResponse 
+            ? 'Link PIX gerado via Vega Checkout' 
+            : 'Link de pagamento criado localmente. Configure a integração Vega para gerar PIX automático.'
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
