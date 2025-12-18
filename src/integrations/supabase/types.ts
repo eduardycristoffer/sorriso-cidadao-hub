@@ -121,6 +121,50 @@ export type Database = {
           },
         ]
       }
+      dependentes: {
+        Row: {
+          ativo: boolean | null
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          id: string
+          nome: string
+          parentesco: string | null
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          id?: string
+          nome: string
+          parentesco?: string | null
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          id?: string
+          nome?: string
+          parentesco?: string | null
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dependentes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordens_servico: {
         Row: {
           cliente_id: string
@@ -191,6 +235,65 @@ export type Database = {
             columns: ["procedimento_id"]
             isOneToOne: false
             referencedRelation: "procedimentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_links: {
+        Row: {
+          cliente_email: string | null
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          pix_code: string | null
+          qr_code_url: string | null
+          status: string | null
+          transaction_token: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cliente_email?: string | null
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          pix_code?: string | null
+          qr_code_url?: string | null
+          status?: string | null
+          transaction_token?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          cliente_email?: string | null
+          cliente_id?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          pix_code?: string | null
+          qr_code_url?: string | null
+          status?: string | null
+          transaction_token?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_links_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
         ]

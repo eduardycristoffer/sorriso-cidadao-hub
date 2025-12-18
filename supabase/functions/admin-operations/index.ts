@@ -165,6 +165,96 @@ serve(async (req) => {
         console.log('Ordem atualizada:', updatedOrdem);
         break;
 
+      // DEPENDENTES
+      case 'create_dependente':
+        const { data: newDep, error: createDepError } = await supabase
+          .from('dependentes')
+          .insert({
+            usuario_id: data.usuario_id,
+            nome: data.nome,
+            cpf: data.cpf || null,
+            data_nascimento: data.data_nascimento || null,
+            parentesco: data.parentesco || null,
+            ativo: true,
+          })
+          .select()
+          .single();
+        
+        if (createDepError) throw createDepError;
+        result = newDep;
+        console.log('Dependente criado:', newDep);
+        break;
+
+      case 'update_dependente':
+        const depUpdateData: any = { updated_at: new Date().toISOString() };
+        if (data.nome !== undefined) depUpdateData.nome = data.nome;
+        if (data.cpf !== undefined) depUpdateData.cpf = data.cpf;
+        if (data.data_nascimento !== undefined) depUpdateData.data_nascimento = data.data_nascimento;
+        if (data.parentesco !== undefined) depUpdateData.parentesco = data.parentesco;
+        if (data.ativo !== undefined) depUpdateData.ativo = data.ativo;
+
+        const { data: updatedDep, error: updateDepError } = await supabase
+          .from('dependentes')
+          .update(depUpdateData)
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updateDepError) throw updateDepError;
+        result = updatedDep;
+        console.log('Dependente atualizado:', updatedDep);
+        break;
+
+      case 'delete_dependente':
+        const { error: deleteDepError } = await supabase
+          .from('dependentes')
+          .delete()
+          .eq('id', data.id);
+        
+        if (deleteDepError) throw deleteDepError;
+        result = { success: true };
+        console.log('Dependente deletado:', data.id);
+        break;
+
+      case 'list_dependentes':
+        const { data: dependentes, error: listDepError } = await supabase
+          .from('dependentes')
+          .select('*')
+          .eq('usuario_id', data.usuario_id)
+          .eq('ativo', true)
+          .order('nome');
+        
+        if (listDepError) throw listDepError;
+        result = dependentes;
+        break;
+
+      // PAYMENT LINKS
+      case 'list_payment_links':
+        const { data: paymentLinks, error: listPayError } = await supabase
+          .from('payment_links')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (listPayError) throw listPayError;
+        result = paymentLinks;
+        break;
+
+      case 'update_payment_link':
+        const payUpdateData: any = { updated_at: new Date().toISOString() };
+        if (data.status !== undefined) payUpdateData.status = data.status;
+
+        const { data: updatedPay, error: updatePayError } = await supabase
+          .from('payment_links')
+          .update(payUpdateData)
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updatePayError) throw updatePayError;
+        result = updatedPay;
+        console.log('Payment link atualizado:', updatedPay);
+        break;
+
       // LISTAR DADOS (para admin)
       case 'list_usuarios':
         const { data: usuarios, error: listUsersError } = await supabase
