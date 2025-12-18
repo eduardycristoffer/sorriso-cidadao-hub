@@ -107,6 +107,12 @@ const Admin = () => {
     observacoes: ''
   });
 
+  // Estados para Configurações
+  const [configuracoes, setConfiguracoes] = useState<any[]>([]);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [mesesAssinatura, setMesesAssinatura] = useState('12');
+  const [savingConfig, setSavingConfig] = useState(false);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -205,14 +211,27 @@ const Admin = () => {
     console.log("Iniciando carregamento dos dados do dashboard...");
     try {
       // Carregar dados via edge function (usando service_role)
-      const [usuariosData, ordensData, procedimentosData, categoriasData] = await Promise.all([
+      const [usuariosData, ordensData, procedimentosData, categoriasData, configData] = await Promise.all([
         callAdminOperation('list_usuarios'),
         callAdminOperation('list_ordens'),
         callAdminOperation('list_procedimentos'),
         callAdminOperation('list_categorias'),
+        callAdminOperation('list_configuracoes'),
       ]);
 
       console.log("Dados carregados via edge function");
+
+      setUsuarios(usuariosData || []);
+      setOrdensServico(ordensData || []);
+      setProcedimentos(procedimentosData || []);
+      setCategorias(categoriasData || []);
+      setConfiguracoes(configData || []);
+      
+      // Extrair valor de meses_assinatura
+      const mesesConfig = configData?.find((c: any) => c.chave === 'meses_assinatura');
+      if (mesesConfig) {
+        setMesesAssinatura(mesesConfig.valor);
+      }
 
       setUsuarios(usuariosData || []);
       setOrdensServico(ordensData || []);
@@ -946,6 +965,51 @@ const Admin = () => {
         description: error.message || "Erro ao atualizar validade",
         variant: "destructive",
       });
+    }
+  };
+
+  // Funções para Configurações
+  const loadConfiguracoes = async () => {
+    try {
+      setConfigLoading(true);
+      const data = await callAdminOperation('list_configuracoes');
+      setConfiguracoes(data || []);
+      
+      // Extrair valor de meses_assinatura
+      const mesesConfig = data?.find((c: any) => c.chave === 'meses_assinatura');
+      if (mesesConfig) {
+        setMesesAssinatura(mesesConfig.valor);
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar configurações:', error);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      setSavingConfig(true);
+      
+      await callAdminOperation('update_configuracao', {
+        chave: 'meses_assinatura',
+        valor: mesesAssinatura,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Configuração salva com sucesso!",
+      });
+
+      loadConfiguracoes();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao salvar configuração",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -2416,15 +2480,86 @@ const Admin = () => {
           <TabsContent value="configuracoes" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Configurações do Sistema
+                </CardTitle>
                 <CardDescription>
-                  Configurações gerais da plataforma
+                  Configure os parâmetros da plataforma
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Funcionalidades de configuração em desenvolvimento.
-                </p>
+              <CardContent className="space-y-6">
+                {/* Período da Assinatura */}
+                <div className="border rounded-lg p-6 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Período da Assinatura</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Define a validade dos novos cartões após a aprovação do pagamento
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="meses">Meses de validade:</Label>
+                      <Input
+                        id="meses"
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={mesesAssinatura}
+                        onChange={(e) => setMesesAssinatura(e.target.value)}
+                        className="w-24"
+                      />
+                      <span className="text-muted-foreground">meses</span>
+                    </div>
+                    <Button 
+                      onClick={handleSaveConfig}
+                      disabled={savingConfig}
+                      variant="primary_cta"
+                    >
+                      {savingConfig ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-md p-4 text-sm">
+                    <p className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-primary" />
+                      <strong>Como funciona:</strong>
+                    </p>
+                    <ul className="mt-2 space-y-1 ml-6 list-disc text-muted-foreground">
+                      <li>Quando um pagamento é aprovado via webhook, o sistema calcula automaticamente a validade</li>
+                      <li>Validade = Data da compra + {mesesAssinatura} meses</li>
+                      <li>Exemplo: Compra em 18/12/2025 → Validade até 18/12/{parseInt(mesesAssinatura) >= 12 ? 2025 + Math.floor(parseInt(mesesAssinatura) / 12) : 2025}/{parseInt(mesesAssinatura) % 12 || 12}</li>
+                      <li>Esta configuração afeta apenas <strong>novas compras</strong> aprovadas após a alteração</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Informações do Sistema */}
+                <div className="border rounded-lg p-6 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Informações</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Dados gerais da configuração
+                    </p>
+                  </div>
+                  
+                  {configLoading ? (
+                    <p className="text-muted-foreground">Carregando...</p>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {configuracoes.map((config: any) => (
+                        <div key={config.id} className="flex justify-between items-center p-3 bg-muted/30 rounded">
+                          <div>
+                            <p className="font-medium">{config.chave}</p>
+                            <p className="text-xs text-muted-foreground">{config.descricao}</p>
+                          </div>
+                          <Badge variant="outline">{config.valor}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
