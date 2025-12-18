@@ -55,8 +55,9 @@ interface OrdemServico {
   data_solicitada: string;
   status: string;
   observacoes_cliente: string;
-  procedimentos: { nome: string };
-  clinicas: { nome: string; cidade: string };
+  procedimento_nome: string | null;
+  clinica_nome: string | null;
+  clinica_cidade: string | null;
 }
 
 const Cliente = () => {
@@ -162,16 +163,10 @@ const Cliente = () => {
       if (catError) throw catError;
       setCategorias(catData || []);
 
-      // Carregar ordens de serviço do usuário
-      const { data: ordensData, error: ordensError } = await supabase
-        .from("ordens_servico")
-        .select(`
-          *,
-          procedimentos (nome),
-          clinicas (nome, cidade)
-        `)
-        .eq("cliente_id", user?.id)
-        .order("created_at", { ascending: false });
+      // Carregar ordens de serviço do usuário usando RPC (bypass RLS)
+      const { data: ordensData, error: ordensError } = await supabase.rpc('listar_ordens_cliente', {
+        p_cliente_id: user?.id
+      });
 
       if (ordensError) throw ordensError;
       setOrdens(ordensData || []);
@@ -581,14 +576,14 @@ const Cliente = () => {
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{ordem.clinicas?.nome}</div>
+                                <div className="font-medium">{ordem.clinica_nome}</div>
                                 <div className="text-sm text-muted-foreground flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
-                                  {ordem.clinicas?.cidade}
+                                  {ordem.clinica_cidade}
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell>{ordem.procedimentos?.nome}</TableCell>
+                            <TableCell>{ordem.procedimento_nome}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3 text-muted-foreground" />
@@ -646,7 +641,7 @@ const Cliente = () => {
                               <p className="font-mono text-xs text-muted-foreground">
                                 #{ordem.id.slice(0, 8)}...
                               </p>
-                              <p className="font-medium text-sm">{ordem.procedimentos?.nome}</p>
+                              <p className="font-medium text-sm">{ordem.procedimento_nome}</p>
                             </div>
                             <Badge variant={
                               ordem.status === "confirmada" ? "default" :
@@ -661,7 +656,7 @@ const Cliente = () => {
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center gap-2">
                               <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="font-medium">{ordem.clinicas?.nome}</span>
+                              <span className="font-medium">{ordem.clinica_nome}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="h-3 w-3 text-muted-foreground" />

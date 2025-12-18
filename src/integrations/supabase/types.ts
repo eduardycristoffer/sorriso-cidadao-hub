@@ -523,6 +523,25 @@ export type Database = {
         }
         Returns: string
       }
+      listar_ordens_cliente: {
+        Args: { p_cliente_id: string }
+        Returns: {
+          cliente_id: string
+          clinica_cidade: string
+          clinica_id: string
+          clinica_nome: string
+          created_at: string
+          data_confirmada: string
+          data_solicitada: string
+          dentista_id: string
+          id: string
+          observacoes_cliente: string
+          procedimento_id: string
+          procedimento_nome: string
+          status: string
+          valor_pago: number
+        }[]
+      }
       validar_cliente_login: {
         Args: { p_cpf: string; p_email: string }
         Returns: {
