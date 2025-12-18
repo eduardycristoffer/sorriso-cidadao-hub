@@ -41,60 +41,71 @@ serve(async (req) => {
     let transactionToken = `LOCAL_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     let vegaResponse = null;
 
-    // Tentar chamar API Vega se a key estiver configurada
+  // Tentar chamar API Vega se a key estiver configurada
     if (vegaApiKey) {
       try {
         // Criar cobrança PIX via Vega Checkout API
-        // NOTA: A URL pode precisar ser ajustada conforme documentação oficial da Vega
+        // URL correta baseada no domínio do cliente: sorrisocidadao.com
+        const apiUrl = 'https://checkout.sorrisocidadao.com/api/checkout';
+        
         const vegaPayload = {
           customer: {
             name: data.cliente_nome || 'Cliente',
             email: data.cliente_email || 'cliente@email.com',
-          },
-          products: [
-            {
-              name: data.nome,
-              quantity: 1,
-              price: data.valor, // em centavos
+            document: '',
+            phone: '',
+            address: {
+              street: '',
+              number: '',
+              district: '',
+              city: '',
+              state: '',
+              zipcode: ''
             }
-          ],
-          payment_method: 'pix',
-          notification_url: `${supabaseUrl}/functions/v1/checkout-webhook`,
+          },
+          payment: {
+            method: 'pix',
+            payment_value: data.valor, // em centavos
+            freight_value: 0,
+            discount_value: 0,
+            external_code: `LINK_${Date.now()}`,
+            currency: 'BRL'
+          },
+          products: [{
+            name: data.nome,
+            price: data.valor,
+            quantity: 1,
+            code: `PROD_${Date.now()}`,
+            is_digital: true,
+            description: data.descricao || ''
+          }],
+          notification_url: `${supabaseUrl}/functions/v1/checkout-webhook`
         };
 
-        console.log('Enviando para Vega Checkout:', vegaPayload);
+        console.log('Enviando para Vega Checkout:', JSON.stringify(vegaPayload));
 
-        // URLs possíveis da API Vega - tente diferentes opções
-        const apiUrls = [
-          'https://api.vegacheckout.com/api/orders',
-          'https://vegacheckout.com/api/orders', 
-          'https://checkout.vegacheckout.com/api/orders',
-        ];
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': vegaApiKey,
+          },
+          body: JSON.stringify(vegaPayload),
+        });
 
-        for (const apiUrl of apiUrls) {
-          try {
-            const response = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${vegaApiKey}`,
-              },
-              body: JSON.stringify(vegaPayload),
-            });
+        const responseText = await response.text();
+        console.log('Resposta Vega (raw):', responseText);
 
-            if (response.ok) {
-              vegaResponse = await response.json();
-              console.log('Resposta Vega Checkout:', vegaResponse);
-              
-              transactionToken = vegaResponse.transaction_token || vegaResponse.order_id || transactionToken;
-              pixCode = vegaResponse.pix?.copy_paste || vegaResponse.pix_copy_paste || vegaResponse.pix_code;
-              qrCodeUrl = vegaResponse.pix?.qr_code_url || vegaResponse.qr_code_url;
-              break;
-            }
-          } catch (fetchError) {
-            console.log(`Falha ao chamar ${apiUrl}:`, fetchError.message);
-            continue;
-          }
+        if (response.ok) {
+          vegaResponse = JSON.parse(responseText);
+          console.log('Resposta Vega Checkout:', vegaResponse);
+          
+          // Parse response baseado na estrutura da API PIX da Vega
+          transactionToken = vegaResponse.data?.transaction_token || vegaResponse.transaction_token || transactionToken;
+          pixCode = vegaResponse.data?.pix_copy_paste || vegaResponse.pix_copy_paste || vegaResponse.pix?.copy_paste;
+          qrCodeUrl = vegaResponse.data?.qr_code_url || vegaResponse.qr_code_url || vegaResponse.pix?.qr_code_url;
+        } else {
+          console.error('Erro na resposta Vega:', response.status, responseText);
         }
       } catch (vegaError) {
         console.error('Erro ao chamar API Vega:', vegaError);

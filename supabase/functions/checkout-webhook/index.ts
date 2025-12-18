@@ -7,10 +7,14 @@ const corsHeaders = {
 };
 
 interface CheckoutWebhookData {
+  // Formato padrão (v1)
   transaction_token?: string;
   order_id?: string;
-  status: 'approved' | 'pending' | 'cancelled' | 'failed';
-  customer: {
+  status?: 'approved' | 'pending' | 'cancelled' | 'failed';
+  // Formato API PIX (pode ter typo no docs: tansaction_token)
+  tansaction_token?: string;
+  payment_status?: 'approved' | 'pending' | 'cancelled' | 'failed';
+  customer?: {
     name: string;
     email: string;
     document?: string;
@@ -47,10 +51,57 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
 
-    // Definir order_id baseado nos dados recebidos
-    const orderId = webhookData.order_id || webhookData.transaction_token;
+    // Definir order_id baseado nos dados recebidos (suporta ambos formatos)
+    // Nota: API PIX pode enviar "tansaction_token" (com typo)
+    const orderId = webhookData.order_id || webhookData.transaction_token || webhookData.tansaction_token;
     
-    // Validar dados obrigatórios
+    // Normalizar status (suporta ambos formatos: status e payment_status)
+    const status = webhookData.status || webhookData.payment_status || 'pending';
+    
+    // Se for webhook de atualização de status PIX (sem customer), apenas atualiza payment_link
+    if (!webhookData.customer?.email && orderId) {
+      console.log('Webhook de atualização PIX recebido para:', orderId);
+      
+      // Registrar evento
+      await supabase
+        .from('webhook_events')
+        .insert({
+          order_id: orderId,
+          event: `pix_${status}`,
+          payload: webhookData,
+          status: 'ok'
+        });
+
+      // Atualizar status do payment_link
+      const paymentLinkStatus = status === 'approved' ? 'paid' 
+        : status === 'cancelled' || status === 'failed' ? 'failed' 
+        : 'pending';
+
+      await supabase
+        .from('payment_links')
+        .update({ 
+          status: paymentLinkStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('transaction_token', orderId);
+      
+      console.log(`Payment link ${orderId} atualizado para status: ${paymentLinkStatus}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Webhook PIX processado',
+          order_id: orderId,
+          status: status
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+    
+    // Validar dados obrigatórios para webhook completo
     if (!orderId || !webhookData.customer?.email || !webhookData.customer?.name) {
       throw new Error('Dados obrigatórios faltando: order_id/transaction_token, email ou nome');
     }
@@ -63,14 +114,14 @@ const handler = async (req: Request): Promise<Response> => {
       .from('webhook_events')
       .insert({
         order_id: orderId,
-        event: `checkout_${webhookData.status}`,
+        event: `checkout_${status}`,
         payload: webhookData,
         status: 'ok'
       });
 
     // Atualizar status do payment_link se existir
-    const paymentLinkStatus = webhookData.status === 'approved' ? 'paid' 
-      : webhookData.status === 'cancelled' || webhookData.status === 'failed' ? 'failed' 
+    const paymentLinkStatus = status === 'approved' ? 'paid' 
+      : status === 'cancelled' || status === 'failed' ? 'failed' 
       : 'pending';
 
     const { data: existingPaymentLink } = await supabase
@@ -93,9 +144,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Definir status da assinatura baseado no status da compra
     let assinaturaStatus = 'PENDENTE';
-    if (webhookData.status === 'approved') {
+    if (status === 'approved') {
       assinaturaStatus = 'ATIVA';
-    } else if (webhookData.status === 'cancelled' || webhookData.status === 'failed') {
+    } else if (status === 'cancelled' || status === 'failed') {
       assinaturaStatus = 'CANCELADA';
     }
 
@@ -148,20 +199,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Se a compra foi aprovada, pode enviar email de boas-vindas (opcional)
-    if (webhookData.status === 'approved') {
-      console.log(`Compra aprovada para ${webhookData.customer.email} - Assinatura ativada`);
-      // Aqui você pode adicionar lógica para enviar email de boas-vindas
-    } else if (webhookData.status === 'failed' || webhookData.status === 'cancelled') {
-      console.log(`Compra ${webhookData.status} para ${webhookData.customer.email}`);
-      // Aqui você pode adicionar lógica para notificar sobre falha na compra
+    if (status === 'approved') {
+      console.log(`Compra aprovada para ${webhookData.customer!.email} - Assinatura ativada`);
+    } else if (status === 'failed' || status === 'cancelled') {
+      console.log(`Compra ${status} para ${webhookData.customer!.email}`);
     }
 
     return new Response(
-        JSON.stringify({ 
+      JSON.stringify({ 
         success: true, 
         message: 'Webhook processado com sucesso',
         order_id: orderId,
-        status: webhookData.status
+        status: status
       }),
       {
         status: 200,
