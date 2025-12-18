@@ -85,60 +85,27 @@ const Cliente = () => {
 
   const checkUser = async () => {
     try {
-      // Primeiro, tentar obter usuário autenticado
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Verificar se tem email salvo na session
+      const savedEmail = sessionStorage.getItem('client_email');
       
-      let userData = null;
-      
-      if (authUser) {
-        // Se tem usuário autenticado, buscar pelos dados do auth
-        let { data, error } = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("auth_user_id", authUser.id)
-          .eq("ativo", true)
-          .maybeSingle();
-
-        // Se não encontrou pelo auth_user_id, buscar pelo email e atualizar
-        if (!data || error) {
-          const { data: emailData } = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("email", authUser.email)
-            .eq("ativo", true)
-            .maybeSingle();
-
-          if (emailData) {
-            // Atualizar com o auth_user_id correto
-            await supabase
-              .from("usuarios")
-              .update({ auth_user_id: authUser.id })
-              .eq("id", emailData.id);
-            
-            userData = { ...emailData, auth_user_id: authUser.id };
-          }
-        } else {
-          userData = data;
-        }
+      if (!savedEmail) {
+        navigate("/entrar");
+        return;
       }
-      
-      // Se não encontrou via auth, verificar se tem dados na URL ou session storage
-      if (!userData) {
-        // Tentar buscar pelo email salvo na session
-        const savedEmail = sessionStorage.getItem('client_email');
-        if (savedEmail) {
-          const { data, error } = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("email", savedEmail)
-            .eq("ativo", true)
-            .maybeSingle();
 
-          if (!error && data) {
-            userData = data;
-          }
-        }
+      // Usar RPC para buscar cliente (bypassa RLS)
+      const { data, error } = await supabase.rpc('buscar_cliente_por_email', { 
+        p_email: savedEmail 
+      });
+
+      if (error) {
+        console.error("Erro ao buscar cliente:", error);
+        navigate("/entrar");
+        return;
       }
+
+      // RPC retorna array, pegar primeiro resultado
+      const userData = Array.isArray(data) ? data[0] : data;
 
       if (!userData) {
         navigate("/entrar");

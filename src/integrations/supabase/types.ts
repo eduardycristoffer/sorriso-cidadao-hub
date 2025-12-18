@@ -502,6 +502,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buscar_cliente_por_email: {
+        Args: { p_email: string }
+        Returns: {
+          assinatura_status: string
+          assinatura_validade: string
+          ativo: boolean
+          email: string
+          id: string
+          nome: string
+        }[]
+      }
       validar_cliente_login: {
         Args: { p_cpf: string; p_email: string }
         Returns: {
