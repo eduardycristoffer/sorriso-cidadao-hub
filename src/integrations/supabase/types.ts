@@ -513,6 +513,16 @@ export type Database = {
           nome: string
         }[]
       }
+      criar_ordem_servico: {
+        Args: {
+          p_cliente_id: string
+          p_clinica_id: string
+          p_data_solicitada: string
+          p_observacoes_cliente?: string
+          p_procedimento_id: string
+        }
+        Returns: string
+      }
       validar_cliente_login: {
         Args: { p_cpf: string; p_email: string }
         Returns: {

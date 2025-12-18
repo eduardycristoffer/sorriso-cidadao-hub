@@ -136,36 +136,24 @@ const WizardConsulta = ({
       return;
     }
 
+    if (!clienteId) {
+      toast({
+        title: "Erro",
+        description: "Sessão expirada. Faça login novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Get current user from auth
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("Usuário não autenticado");
-      }
-
-      // Get user record from usuarios table
-      const { data: userData, error: userError } = await supabase
-        .from("usuarios")
-        .select("id")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (userError || !userData) {
-        throw new Error("Usuário não encontrado no sistema");
-      }
-
-      const { error } = await supabase
-        .from("ordens_servico")
-        .insert({
-          cliente_id: userData.id,
-          procedimento_id: procedimento.id,
-          clinica_id: clinica.id,
-          data_solicitada: new Date(dataConsulta).toISOString(),
-          observacoes_cliente: `Período preferido: ${periodoConsulta}. ${observacoes}`,
-          status: "solicitada"
-        });
+      const { data, error } = await supabase.rpc('criar_ordem_servico', {
+        p_cliente_id: clienteId,
+        p_procedimento_id: procedimento.id,
+        p_clinica_id: clinica.id,
+        p_data_solicitada: new Date(dataConsulta).toISOString(),
+        p_observacoes_cliente: `Período preferido: ${periodoConsulta}. ${observacoes}`
+      });
 
       if (error) throw error;
 
@@ -187,6 +175,7 @@ const WizardConsulta = ({
       setLoading(false);
     }
   };
+
 
   const formatPrice = (preco_min: number, preco_max: number | null) => {
     if (!preco_max) {
