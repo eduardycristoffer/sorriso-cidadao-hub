@@ -26,6 +26,8 @@ interface CheckoutWebhookData {
   method?: string;
   payment_method?: string;
   transaction_id?: string;
+  approved_at?: string;
+  created_at?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -150,6 +152,31 @@ const handler = async (req: Request): Promise<Response> => {
       assinaturaStatus = 'CANCELADA';
     }
 
+    // Buscar configuração de meses para assinatura (padrão 12)
+    let mesesAssinatura = 12;
+    try {
+      const { data: configData } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'meses_assinatura')
+        .maybeSingle();
+      
+      if (configData?.valor) {
+        mesesAssinatura = parseInt(configData.valor) || 12;
+      }
+      console.log(`Configuração de meses: ${mesesAssinatura}`);
+    } catch (configError) {
+      console.log('Usando meses padrão (12):', configError);
+    }
+
+    // Calcular data de validade baseada na data da compra
+    const dataCompra = new Date(webhookData.approved_at || webhookData.created_at || new Date().toISOString());
+    const dataValidade = new Date(dataCompra);
+    dataValidade.setMonth(dataValidade.getMonth() + mesesAssinatura);
+
+    console.log(`Data da compra: ${dataCompra.toISOString()}`);
+    console.log(`Data de validade calculada (+${mesesAssinatura} meses): ${dataValidade.toISOString()}`);
+
     // Verificar se o usuário já existe pelo email
     const { data: existingUser } = await supabase
       .from('usuarios')
@@ -157,18 +184,29 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('email', webhookData.customer.email)
       .maybeSingle();
 
+    let usuarioId: string | null = null;
+
     if (existingUser) {
+      usuarioId = existingUser.id;
+      
       // Atualizar usuário existente
+      const updateData: any = {
+        nome: webhookData.customer.name,
+        cpf: cpf,
+        telefone: webhookData.customer.phone,
+        assinatura_status: assinaturaStatus,
+        order_id: orderId,
+        updated_at: new Date().toISOString()
+      };
+
+      // Se aprovado, atualizar validade
+      if (status === 'approved') {
+        updateData.assinatura_validade = dataValidade.toISOString();
+      }
+
       const { error: updateError } = await supabase
         .from('usuarios')
-        .update({
-          nome: webhookData.customer.name,
-          cpf: cpf,
-          telefone: webhookData.customer.phone,
-          assinatura_status: assinaturaStatus,
-          order_id: orderId,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('email', webhookData.customer.email);
 
       if (updateError) {
@@ -178,29 +216,61 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Usuário atualizado: ${webhookData.customer.email}`);
     } else {
       // Criar novo usuário
-      const { error: insertError } = await supabase
+      const insertData: any = {
+        nome: webhookData.customer.name,
+        email: webhookData.customer.email,
+        cpf: cpf,
+        telefone: webhookData.customer.phone,
+        role: 'cliente',
+        assinatura_status: assinaturaStatus,
+        order_id: orderId,
+        ativo: true
+      };
+
+      // Se aprovado, definir validade
+      if (status === 'approved') {
+        insertData.assinatura_validade = dataValidade.toISOString();
+      }
+
+      const { data: newUser, error: insertError } = await supabase
         .from('usuarios')
-        .insert({
-          nome: webhookData.customer.name,
-          email: webhookData.customer.email,
-          cpf: cpf,
-          telefone: webhookData.customer.phone,
-          role: 'cliente',
-          assinatura_status: assinaturaStatus,
-          order_id: orderId,
-          ativo: true
-        });
+        .insert(insertData)
+        .select()
+        .single();
 
       if (insertError) {
         throw insertError;
       }
 
+      usuarioId = newUser?.id;
       console.log(`Novo usuário criado: ${webhookData.customer.email}`);
     }
 
-    // Se a compra foi aprovada, pode enviar email de boas-vindas (opcional)
-    if (status === 'approved') {
-      console.log(`Compra aprovada para ${webhookData.customer!.email} - Assinatura ativada`);
+    // Se a compra foi aprovada, registrar no histórico de assinaturas
+    if (status === 'approved' && usuarioId) {
+      const valorCompra = (webhookData.total_price || webhookData.amount || 0) / 100; // Centavos para reais
+      const metodoPagamento = webhookData.method || webhookData.payment_method || 'pix';
+
+      const { error: historicoError } = await supabase
+        .from('historico_assinaturas')
+        .insert({
+          usuario_id: usuarioId,
+          valor: valorCompra,
+          data_pagamento: dataCompra.toISOString(),
+          data_inicio: dataCompra.toISOString().split('T')[0],
+          data_fim: dataValidade.toISOString().split('T')[0],
+          metodo_pagamento: metodoPagamento,
+          observacoes: `Pagamento automático via webhook - Order: ${orderId}`
+        });
+
+      if (historicoError) {
+        console.error('Erro ao registrar histórico:', historicoError);
+        // Não bloquear o webhook por erro no histórico
+      } else {
+        console.log(`Histórico de assinatura registrado - Valor: R$ ${valorCompra.toFixed(2)}, Período: ${dataCompra.toISOString().split('T')[0]} até ${dataValidade.toISOString().split('T')[0]}`);
+      }
+
+      console.log(`Compra aprovada para ${webhookData.customer!.email} - Assinatura ativada até ${dataValidade.toISOString().split('T')[0]}`);
     } else if (status === 'failed' || status === 'cancelled') {
       console.log(`Compra ${status} para ${webhookData.customer!.email}`);
     }
@@ -210,7 +280,8 @@ const handler = async (req: Request): Promise<Response> => {
         success: true, 
         message: 'Webhook processado com sucesso',
         order_id: orderId,
-        status: status
+        status: status,
+        validade: status === 'approved' ? dataValidade.toISOString() : null
       }),
       {
         status: 200,

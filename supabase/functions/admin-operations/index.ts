@@ -388,6 +388,33 @@ serve(async (req) => {
         result = categorias;
         break;
 
+      // CONFIGURAÇÕES
+      case 'list_configuracoes':
+        const { data: configs, error: listConfigError } = await supabase
+          .from('configuracoes')
+          .select('*')
+          .order('chave');
+        
+        if (listConfigError) throw listConfigError;
+        result = configs;
+        break;
+
+      case 'update_configuracao':
+        const { data: updatedConfig, error: updateConfigError } = await supabase
+          .from('configuracoes')
+          .update({
+            valor: data.valor,
+            updated_at: new Date().toISOString()
+          })
+          .eq('chave', data.chave)
+          .select()
+          .single();
+        
+        if (updateConfigError) throw updateConfigError;
+        result = updatedConfig;
+        console.log('Configuração atualizada:', updatedConfig);
+        break;
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }
