@@ -68,6 +68,29 @@ const handler = async (req: Request): Promise<Response> => {
         status: 'ok'
       });
 
+    // Atualizar status do payment_link se existir
+    const paymentLinkStatus = webhookData.status === 'approved' ? 'paid' 
+      : webhookData.status === 'cancelled' || webhookData.status === 'failed' ? 'failed' 
+      : 'pending';
+
+    const { data: existingPaymentLink } = await supabase
+      .from('payment_links')
+      .select('id')
+      .eq('transaction_token', orderId)
+      .maybeSingle();
+
+    if (existingPaymentLink) {
+      await supabase
+        .from('payment_links')
+        .update({ 
+          status: paymentLinkStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('transaction_token', orderId);
+      
+      console.log(`Payment link ${orderId} atualizado para status: ${paymentLinkStatus}`);
+    }
+
     // Definir status da assinatura baseado no status da compra
     let assinaturaStatus = 'PENDENTE';
     if (webhookData.status === 'approved') {

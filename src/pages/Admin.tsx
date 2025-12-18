@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2 } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, CreditCard, UserPlus, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -74,6 +74,32 @@ const Admin = () => {
     cpf: '',
     role: 'cliente',
     password: ''
+  });
+
+  // Estados para Pagamentos (Vega Checkout)
+  const [paymentLinks, setPaymentLinks] = useState([]);
+  const [newPaymentDialog, setNewPaymentDialog] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    nome: '',
+    descricao: '',
+    valor: '',
+    cliente_email: '',
+    cliente_nome: ''
+  });
+  const [createdPayment, setCreatedPayment] = useState<any>(null);
+
+  // Estados para Dependentes
+  const [selectedUsuario, setSelectedUsuario] = useState<any>(null);
+  const [dependentesDialog, setDependentesDialog] = useState(false);
+  const [dependentes, setDependentes] = useState([]);
+  const [dependentesLoading, setDependentesLoading] = useState(false);
+  const [newDependenteDialog, setNewDependenteDialog] = useState(false);
+  const [newDependente, setNewDependente] = useState({
+    nome: '',
+    cpf: '',
+    data_nascimento: '',
+    parentesco: ''
   });
 
   useEffect(() => {
@@ -174,11 +200,12 @@ const Admin = () => {
     console.log("Iniciando carregamento dos dados do dashboard...");
     try {
       // Carregar dados via edge function (usando service_role)
-      const [usuariosData, ordensData, procedimentosData, categoriasData] = await Promise.all([
+      const [usuariosData, ordensData, procedimentosData, categoriasData, paymentLinksData] = await Promise.all([
         callAdminOperation('list_usuarios'),
         callAdminOperation('list_ordens'),
         callAdminOperation('list_procedimentos'),
         callAdminOperation('list_categorias'),
+        callAdminOperation('list_payment_links'),
       ]);
 
       console.log("Dados carregados via edge function");
@@ -187,6 +214,7 @@ const Admin = () => {
       setOrdensServico(ordensData || []);
       setProcedimentos(procedimentosData || []);
       setCategorias(categoriasData || []);
+      setPaymentLinks(paymentLinksData || []);
       
       console.log("Estados atualizados com sucesso");
       console.log("Total de procedimentos no estado:", procedimentosData?.length || 0);
@@ -711,6 +739,151 @@ const Admin = () => {
     }
   };
 
+  // Funções para Pagamentos (Vega Checkout)
+  const handleCreatePayment = async () => {
+    try {
+      if (!newPayment.nome || !newPayment.valor) {
+        toast({
+          title: "Erro",
+          description: "Nome e valor são obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPaymentLoading(true);
+
+      const valorEmCentavos = Math.round(parseFloat(newPayment.valor) * 100);
+
+      const { data: response, error } = await supabase.functions.invoke('create-payment-link', {
+        body: {
+          nome: newPayment.nome,
+          descricao: newPayment.descricao,
+          valor: valorEmCentavos,
+          cliente_email: newPayment.cliente_email || undefined,
+          cliente_nome: newPayment.cliente_nome || undefined,
+        }
+      });
+
+      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+
+      setCreatedPayment(response.data);
+      toast({
+        title: "Sucesso",
+        description: "Link de pagamento criado com sucesso!",
+      });
+
+      loadDashboardData();
+    } catch (error: any) {
+      console.error("Erro ao criar pagamento:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar link de pagamento",
+        variant: "destructive",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copiado!",
+      description: "Código PIX copiado para a área de transferência",
+    });
+  };
+
+  const getPaymentStatusBadge = (status: string) => {
+    const statusMap = {
+      'pending': { label: 'Pendente', variant: 'secondary' as const },
+      'paid': { label: 'Pago', variant: 'default' as const },
+      'failed': { label: 'Falhou', variant: 'destructive' as const },
+    };
+    
+    const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+  };
+
+  // Funções para Dependentes
+  const loadDependentes = async (usuarioId: string) => {
+    try {
+      setDependentesLoading(true);
+      const data = await callAdminOperation('list_dependentes', { usuario_id: usuarioId });
+      setDependentes(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao carregar dependentes",
+        variant: "destructive",
+      });
+    } finally {
+      setDependentesLoading(false);
+    }
+  };
+
+  const handleOpenDependentes = async (usuario: any) => {
+    setSelectedUsuario(usuario);
+    setDependentesDialog(true);
+    await loadDependentes(usuario.id);
+  };
+
+  const handleCreateDependente = async () => {
+    try {
+      if (!newDependente.nome) {
+        toast({
+          title: "Erro",
+          description: "Nome do dependente é obrigatório",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await callAdminOperation('create_dependente', {
+        usuario_id: selectedUsuario.id,
+        nome: newDependente.nome,
+        cpf: newDependente.cpf || null,
+        data_nascimento: newDependente.data_nascimento || null,
+        parentesco: newDependente.parentesco || null,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Dependente adicionado com sucesso!",
+      });
+
+      setNewDependenteDialog(false);
+      setNewDependente({ nome: '', cpf: '', data_nascimento: '', parentesco: '' });
+      await loadDependentes(selectedUsuario.id);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar dependente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteDependente = async (dependenteId: string, nome: string) => {
+    try {
+      await callAdminOperation('delete_dependente', { id: dependenteId });
+      
+      toast({
+        title: "Sucesso",
+        description: `Dependente "${nome}" removido com sucesso!`,
+      });
+
+      await loadDependentes(selectedUsuario.id);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao remover dependente",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -849,7 +1022,7 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Dashboard
@@ -860,7 +1033,11 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="ordens">
               <FileText className="h-4 w-4 mr-2" />
-              Ordens de Serviço
+              Ordens
+            </TabsTrigger>
+            <TabsTrigger value="pagamentos">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Pagamentos
             </TabsTrigger>
             <TabsTrigger value="vendas">
               <DollarSign className="h-4 w-4 mr-2" />
@@ -876,7 +1053,7 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="configuracoes">
               <Settings className="h-4 w-4 mr-2" />
-              Configurações
+              Config
             </TabsTrigger>
           </TabsList>
 
@@ -1246,6 +1423,14 @@ const Admin = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  onClick={() => handleOpenDependentes(usuario)}
+                                  title="Gerenciar Dependentes"
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
                                 >
                                   {usuario.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1584,6 +1769,130 @@ const Admin = () => {
                         <div className="text-xs text-muted-foreground">Leads Pendentes</div>
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Pagamentos - Vega Checkout */}
+          <TabsContent value="pagamentos" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Criar Link de Pagamento</CardTitle>
+                  <CardDescription>Gere cobranças PIX via Vega Checkout</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome do Produto/Serviço</Label>
+                    <Input
+                      value={newPayment.nome}
+                      onChange={(e) => setNewPayment({...newPayment, nome: e.target.value})}
+                      placeholder="Ex: Assinatura Mensal"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição (Opcional)</Label>
+                    <Textarea
+                      value={newPayment.descricao}
+                      onChange={(e) => setNewPayment({...newPayment, descricao: e.target.value})}
+                      placeholder="Descrição do produto..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newPayment.valor}
+                      onChange={(e) => setNewPayment({...newPayment, valor: e.target.value})}
+                      placeholder="59.90"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome do Cliente (Opcional)</Label>
+                      <Input
+                        value={newPayment.cliente_nome}
+                        onChange={(e) => setNewPayment({...newPayment, cliente_nome: e.target.value})}
+                        placeholder="Nome"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email do Cliente (Opcional)</Label>
+                      <Input
+                        type="email"
+                        value={newPayment.cliente_email}
+                        onChange={(e) => setNewPayment({...newPayment, cliente_email: e.target.value})}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleCreatePayment} 
+                    disabled={paymentLoading}
+                    className="w-full"
+                    variant="primary_cta"
+                  >
+                    {paymentLoading ? "Gerando..." : "Gerar Link PIX"}
+                  </Button>
+
+                  {createdPayment && createdPayment.pix_code && (
+                    <div className="mt-4 p-4 bg-muted rounded-lg space-y-3">
+                      <div className="text-sm font-medium text-green-600">✓ PIX gerado com sucesso!</div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Código PIX Copia e Cola:</Label>
+                        <div className="flex gap-2">
+                          <Input value={createdPayment.pix_code} readOnly className="text-xs" />
+                          <Button size="sm" variant="outline" onClick={() => copyToClipboard(createdPayment.pix_code)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {createdPayment.qr_code_url && (
+                        <div className="text-center">
+                          <img src={createdPayment.qr_code_url} alt="QR Code PIX" className="mx-auto w-48 h-48" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Histórico de Links</CardTitle>
+                  <CardDescription>Links de pagamento criados</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {paymentLinks.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4">Nenhum link criado ainda</p>
+                    ) : (
+                      paymentLinks.map((link: any) => (
+                        <div key={link.id} className="p-3 border rounded-lg space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium">{link.nome}</div>
+                              <div className="text-sm text-muted-foreground">
+                                R$ {(link.valor / 100).toFixed(2)}
+                              </div>
+                            </div>
+                            {getPaymentStatusBadge(link.status)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(link.created_at).toLocaleString('pt-BR')}
+                          </div>
+                          {link.pix_code && (
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => copyToClipboard(link.pix_code)}>
+                              <Copy className="h-3 w-3 mr-2" /> Copiar PIX
+                            </Button>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2077,6 +2386,71 @@ const Admin = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Dialog de Dependentes */}
+        <Dialog open={dependentesDialog} onOpenChange={setDependentesDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Dependentes de {selectedUsuario?.nome}</DialogTitle>
+              <DialogDescription>Gerenciar dependentes vinculados ao usuário</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Dialog open={newDependenteDialog} onOpenChange={setNewDependenteDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm"><Plus className="h-4 w-4 mr-2" />Adicionar Dependente</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Novo Dependente</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div><Label>Nome</Label><Input value={newDependente.nome} onChange={(e) => setNewDependente({...newDependente, nome: e.target.value})} placeholder="Nome completo" /></div>
+                      <div><Label>CPF</Label><Input value={newDependente.cpf} onChange={(e) => setNewDependente({...newDependente, cpf: e.target.value})} placeholder="000.000.000-00" /></div>
+                      <div><Label>Data de Nascimento</Label><Input type="date" value={newDependente.data_nascimento} onChange={(e) => setNewDependente({...newDependente, data_nascimento: e.target.value})} /></div>
+                      <div><Label>Parentesco</Label>
+                        <Select value={newDependente.parentesco} onValueChange={(v) => setNewDependente({...newDependente, parentesco: v})}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="filho">Filho(a)</SelectItem>
+                            <SelectItem value="conjuge">Cônjuge</SelectItem>
+                            <SelectItem value="pai">Pai</SelectItem>
+                            <SelectItem value="mae">Mãe</SelectItem>
+                            <SelectItem value="outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setNewDependenteDialog(false)}>Cancelar</Button>
+                      <Button onClick={handleCreateDependente}>Salvar</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              {dependentesLoading ? (
+                <p className="text-center text-muted-foreground">Carregando...</p>
+              ) : dependentes.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhum dependente cadastrado</p>
+              ) : (
+                <Table>
+                  <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>CPF</TableHead><TableHead>Nascimento</TableHead><TableHead>Parentesco</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {dependentes.map((dep: any) => (
+                      <TableRow key={dep.id}>
+                        <TableCell className="font-medium">{dep.nome}</TableCell>
+                        <TableCell>{dep.cpf || '-'}</TableCell>
+                        <TableCell>{dep.data_nascimento ? new Date(dep.data_nascimento).toLocaleDateString('pt-BR') : '-'}</TableCell>
+                        <TableCell className="capitalize">{dep.parentesco || '-'}</TableCell>
+                        <TableCell><Button size="sm" variant="destructive" onClick={() => handleDeleteDependente(dep.id, dep.nome)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
