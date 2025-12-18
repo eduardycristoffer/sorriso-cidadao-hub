@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -112,6 +112,12 @@ const Admin = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [mesesAssinatura, setMesesAssinatura] = useState('12');
   const [savingConfig, setSavingConfig] = useState(false);
+
+  // Estados para Histórico de Procedimentos
+  const [procedimentosDialog, setProcedimentosDialog] = useState(false);
+  const [procedimentosUsuario, setProcedimentosUsuario] = useState<any>(null);
+  const [historicoProcedimentos, setHistoricoProcedimentos] = useState<any[]>([]);
+  const [procedimentosLoading, setProcedimentosLoading] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -968,6 +974,29 @@ const Admin = () => {
     }
   };
 
+  // Funções para Histórico de Procedimentos
+  const loadHistoricoProcedimentos = async (usuarioId: string) => {
+    try {
+      setProcedimentosLoading(true);
+      const data = await callAdminOperation('list_historico_procedimentos', { usuario_id: usuarioId });
+      setHistoricoProcedimentos(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao carregar procedimentos",
+        variant: "destructive",
+      });
+    } finally {
+      setProcedimentosLoading(false);
+    }
+  };
+
+  const handleOpenProcedimentos = async (usuario: any) => {
+    setProcedimentosUsuario(usuario);
+    setProcedimentosDialog(true);
+    await loadHistoricoProcedimentos(usuario.id);
+  };
+
   // Funções para Configurações
   const loadConfiguracoes = async () => {
     try {
@@ -1656,6 +1685,14 @@ const Admin = () => {
                                   title="Ver Histórico de Pagamentos"
                                 >
                                   <History className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenProcedimentos(usuario)}
+                                  title="Ver Histórico de Procedimentos"
+                                >
+                                  <ClipboardList className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
@@ -2771,6 +2808,72 @@ const Admin = () => {
                   </TableBody>
                 </Table>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Histórico de Procedimentos */}
+        <Dialog open={procedimentosDialog} onOpenChange={setProcedimentosDialog}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Histórico de Procedimentos - {procedimentosUsuario?.nome}</DialogTitle>
+              <DialogDescription>
+                Registro de ordens de serviço e procedimentos solicitados
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {procedimentosLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Carregando procedimentos...</div>
+              ) : historicoProcedimentos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">Nenhum procedimento solicitado</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Procedimento</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data Solicitada</TableHead>
+                      <TableHead>Data Confirmada</TableHead>
+                      <TableHead>Clínica</TableHead>
+                      <TableHead>Dentista</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historicoProcedimentos.map((proc: any) => (
+                      <TableRow key={proc.id}>
+                        <TableCell className="font-medium">
+                          {proc.procedimentos?.nome || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(proc.status)}
+                        </TableCell>
+                        <TableCell>
+                          {proc.data_solicitada 
+                            ? format(new Date(proc.data_solicitada), 'dd/MM/yyyy', { locale: ptBR })
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {proc.data_confirmada 
+                            ? format(new Date(proc.data_confirmada), 'dd/MM/yyyy', { locale: ptBR })
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {proc.clinicas?.nome || '-'}
+                          {proc.clinicas?.cidade && (
+                            <span className="text-xs text-muted-foreground block">{proc.clinicas.cidade}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {proc.dentistas?.nome || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <div className="text-sm text-muted-foreground text-right">
+                Total: {historicoProcedimentos.length} procedimento(s)
+              </div>
             </div>
           </DialogContent>
         </Dialog>
