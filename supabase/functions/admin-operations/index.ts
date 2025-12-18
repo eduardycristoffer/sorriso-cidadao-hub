@@ -637,6 +637,94 @@ serve(async (req) => {
         result = clinicasData;
         break;
 
+      // LISTAR TODAS CLÍNICAS (incluindo inativas)
+      case 'list_all_clinicas':
+        const { data: allClinicasData, error: listAllClinicasError } = await supabase
+          .from('clinicas')
+          .select('*')
+          .order('nome');
+        
+        if (listAllClinicasError) throw listAllClinicasError;
+        result = allClinicasData;
+        break;
+
+      // CRIAR CLÍNICA
+      case 'create_clinica':
+        const { data: newClinica, error: createClinicaError } = await supabase
+          .from('clinicas')
+          .insert({
+            nome: data.nome,
+            cidade: data.cidade,
+            estado: data.estado || 'GO',
+            endereco: data.endereco || null,
+            telefone: data.telefone || null,
+            email: data.email || null,
+            ativo: true,
+          })
+          .select()
+          .single();
+        
+        if (createClinicaError) throw createClinicaError;
+        result = newClinica;
+        console.log('Clínica criada:', newClinica);
+        break;
+
+      // ATUALIZAR CLÍNICA
+      case 'update_clinica':
+        const clinicaUpdateData: any = { updated_at: new Date().toISOString() };
+        if (data.nome !== undefined) clinicaUpdateData.nome = data.nome;
+        if (data.cidade !== undefined) clinicaUpdateData.cidade = data.cidade;
+        if (data.estado !== undefined) clinicaUpdateData.estado = data.estado;
+        if (data.endereco !== undefined) clinicaUpdateData.endereco = data.endereco;
+        if (data.telefone !== undefined) clinicaUpdateData.telefone = data.telefone;
+        if (data.email !== undefined) clinicaUpdateData.email = data.email;
+        if (data.ativo !== undefined) clinicaUpdateData.ativo = data.ativo;
+
+        const { data: updatedClinica, error: updateClinicaError } = await supabase
+          .from('clinicas')
+          .update(clinicaUpdateData)
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updateClinicaError) throw updateClinicaError;
+        result = updatedClinica;
+        console.log('Clínica atualizada:', updatedClinica);
+        break;
+
+      // EXCLUIR CLÍNICA (soft delete)
+      case 'delete_clinica':
+        const { data: deletedClinica, error: deleteClinicaError } = await supabase
+          .from('clinicas')
+          .update({ ativo: false, updated_at: new Date().toISOString() })
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (deleteClinicaError) throw deleteClinicaError;
+        result = deletedClinica;
+        console.log('Clínica desativada:', data.id);
+        break;
+
+      // ATUALIZAR ORDEM COM PROPOSTA ADMIN
+      case 'update_ordem_proposta':
+        const { data: ordemProposta, error: updateOrdemPropostaError } = await supabase
+          .from('ordens_servico')
+          .update({
+            data_proposta_admin: data.data_proposta_admin,
+            status: 'aguardando_cliente',
+            observacoes_internas: data.observacoes_internas || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updateOrdemPropostaError) throw updateOrdemPropostaError;
+        result = ordemProposta;
+        console.log('Proposta enviada para cliente:', ordemProposta);
+        break;
+
       // LISTAR DENTISTAS
       case 'list_dentistas':
         const { data: dentistasData, error: listDentistasError } = await supabase

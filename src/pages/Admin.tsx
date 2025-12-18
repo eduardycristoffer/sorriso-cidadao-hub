@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays, ClipboardList, TrendingUp, BarChart3 } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays, ClipboardList, TrendingUp, BarChart3, Building2, Send } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -142,6 +142,20 @@ const Admin = () => {
   const [relatorioClientes, setRelatorioClientes] = useState<any>(null);
   const [relatorioLoading, setRelatorioLoading] = useState(false);
 
+  // Estados para Clínicas
+  const [allClinicas, setAllClinicas] = useState<any[]>([]);
+  const [editingClinica, setEditingClinica] = useState<string | null>(null);
+  const [editingClinicaValues, setEditingClinicaValues] = useState({ nome: '', cidade: '', estado: '', endereco: '', telefone: '', email: '' });
+  const [newClinicaDialog, setNewClinicaDialog] = useState(false);
+  const [newClinica, setNewClinica] = useState({ nome: '', cidade: '', estado: 'GO', endereco: '', telefone: '', email: '' });
+
+  // Estado para proposta de data ao cliente
+  const [propostaDialog, setPropostaDialog] = useState(false);
+  const [propostaOrdem, setPropostaOrdem] = useState<any>(null);
+  const [propostaData, setPropostaData] = useState('');
+  const [propostaHora, setPropostaHora] = useState('');
+  const [propostaObservacoes, setPropostaObservacoes] = useState('');
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -240,12 +254,13 @@ const Admin = () => {
     console.log("Iniciando carregamento dos dados do dashboard...");
     try {
       // Carregar dados via edge function (usando service_role)
-      const [usuariosData, ordensData, procedimentosData, categoriasData, configData] = await Promise.all([
+      const [usuariosData, ordensData, procedimentosData, categoriasData, configData, clinicasData] = await Promise.all([
         callAdminOperation('list_usuarios'),
         callAdminOperation('list_ordens'),
         callAdminOperation('list_procedimentos'),
         callAdminOperation('list_categorias'),
         callAdminOperation('list_configuracoes'),
+        callAdminOperation('list_all_clinicas'),
       ]);
 
       console.log("Dados carregados via edge function");
@@ -255,17 +270,14 @@ const Admin = () => {
       setProcedimentos(procedimentosData || []);
       setCategorias(categoriasData || []);
       setConfiguracoes(configData || []);
+      setAllClinicas(clinicasData || []);
+      setClinicas(clinicasData?.filter((c: any) => c.ativo) || []);
       
       // Extrair valor de meses_assinatura
       const mesesConfig = configData?.find((c: any) => c.chave === 'meses_assinatura');
       if (mesesConfig) {
         setMesesAssinatura(mesesConfig.valor);
       }
-
-      setUsuarios(usuariosData || []);
-      setOrdensServico(ordensData || []);
-      setProcedimentos(procedimentosData || []);
-      setCategorias(categoriasData || []);
       
       console.log("Estados atualizados com sucesso");
       console.log("Total de procedimentos no estado:", procedimentosData?.length || 0);
@@ -275,7 +287,7 @@ const Admin = () => {
       const assinaturasAtivas = usuariosData?.filter((u: any) => u.assinatura_status === 'ATIVA').length || 0;
       const totalOS = ordensData?.length || 0;
       const ordensConfirmadas = ordensData?.filter((o: any) => o.status === 'confirmada').length || 0;
-      const ordensPendentes = ordensData?.filter((o: any) => o.status === 'solicitada' || o.status === 'em_analise').length || 0;
+      const ordensPendentes = ordensData?.filter((o: any) => o.status === 'solicitada' || o.status === 'em_analise' || o.status === 'aguardando_cliente').length || 0;
       const ordensCanceladas = ordensData?.filter((o: any) => o.status === 'cancelada').length || 0;
       const ordensRealizadas = ordensData?.filter((o: any) => o.status === 'realizada').length || 0;
       const ordensEmAnalise = ordensData?.filter((o: any) => o.status === 'em_analise').length || 0;
@@ -309,6 +321,7 @@ const Admin = () => {
     const statusMap = {
       'solicitada': { label: 'Solicitada', variant: 'secondary' as const },
       'em_analise': { label: 'Em Análise', variant: 'outline' as const },
+      'aguardando_cliente': { label: 'Aguardando Cliente', variant: 'outline' as const },
       'confirmada': { label: 'Confirmada', variant: 'default' as const },
       'realizada': { label: 'Realizada', variant: 'default' as const },
       'cancelada': { label: 'Cancelada', variant: 'destructive' as const },
@@ -316,6 +329,73 @@ const Admin = () => {
     
     const statusInfo = statusMap[status as keyof typeof statusMap] || { label: status, variant: 'secondary' as const };
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+  };
+
+  // Funções para Clínicas
+  const handleCreateClinica = async () => {
+    try {
+      if (!newClinica.nome || !newClinica.cidade) {
+        toast({ title: "Erro", description: "Nome e cidade são obrigatórios", variant: "destructive" });
+        return;
+      }
+
+      await callAdminOperation('create_clinica', newClinica);
+      await loadDashboardData();
+      setNewClinicaDialog(false);
+      setNewClinica({ nome: '', cidade: '', estado: 'GO', endereco: '', telefone: '', email: '' });
+      toast({ title: "Sucesso", description: "Clínica criada com sucesso!" });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message || "Erro ao criar clínica", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateClinica = async (clinicaId: string) => {
+    try {
+      await callAdminOperation('update_clinica', { id: clinicaId, ...editingClinicaValues });
+      await loadDashboardData();
+      setEditingClinica(null);
+      setEditingClinicaValues({ nome: '', cidade: '', estado: '', endereco: '', telefone: '', email: '' });
+      toast({ title: "Sucesso", description: "Clínica atualizada!" });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteClinica = async (clinicaId: string, clinicaNome: string) => {
+    try {
+      await callAdminOperation('delete_clinica', { id: clinicaId });
+      await loadDashboardData();
+      toast({ title: "Sucesso", description: `Clínica "${clinicaNome}" desativada!` });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleEnviarProposta = async () => {
+    try {
+      if (!propostaData || !propostaHora) {
+        toast({ title: "Erro", description: "Data e hora são obrigatórios", variant: "destructive" });
+        return;
+      }
+
+      const dataCompleta = `${propostaData}T${propostaHora}:00`;
+      
+      await callAdminOperation('update_ordem_proposta', {
+        id: propostaOrdem.id,
+        data_proposta_admin: dataCompleta,
+        observacoes_internas: propostaObservacoes
+      });
+
+      await loadDashboardData();
+      setPropostaDialog(false);
+      setPropostaOrdem(null);
+      setPropostaData('');
+      setPropostaHora('');
+      setPropostaObservacoes('');
+      toast({ title: "Sucesso", description: "Proposta enviada! Aguardando resposta do cliente." });
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    }
   };
 
   const getAssinaturaStatusBadge = (status: string) => {
@@ -1312,7 +1392,7 @@ const Admin = () => {
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
           <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList className="inline-flex w-full md:grid md:grid-cols-8 gap-1">
+            <TabsList className="inline-flex w-full md:grid md:grid-cols-9 gap-1">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">
                 <Settings className="h-4 w-4 mr-1 md:mr-2" />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -1336,6 +1416,10 @@ const Admin = () => {
               <TabsTrigger value="categorias" className="text-xs md:text-sm">
                 <FileText className="h-4 w-4 mr-1 md:mr-2" />
                 <span className="hidden sm:inline">Categorias</span>
+              </TabsTrigger>
+              <TabsTrigger value="clinicas" className="text-xs md:text-sm">
+                <Building2 className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Clínicas</span>
               </TabsTrigger>
               <TabsTrigger value="configuracoes" className="text-xs md:text-sm">
                 <Settings className="h-4 w-4 mr-1 md:mr-2" />
@@ -2682,6 +2766,161 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          {/* Clínicas */}
+          <TabsContent value="clinicas" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Clínicas Parceiras
+                  </CardTitle>
+                  <CardDescription>Gerencie as clínicas parceiras do sistema</CardDescription>
+                </div>
+                <Dialog open={newClinicaDialog} onOpenChange={setNewClinicaDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="primary_cta">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova Clínica
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Adicionar Clínica</DialogTitle>
+                      <DialogDescription>Preencha os dados da nova clínica parceira</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Nome *</Label>
+                          <Input value={newClinica.nome} onChange={(e) => setNewClinica({...newClinica, nome: e.target.value})} placeholder="Nome da clínica" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cidade *</Label>
+                          <Input value={newClinica.cidade} onChange={(e) => setNewClinica({...newClinica, cidade: e.target.value})} placeholder="Cidade" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Estado</Label>
+                          <Select value={newClinica.estado} onValueChange={(v) => setNewClinica({...newClinica, estado: v})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="GO">Goiás</SelectItem>
+                              <SelectItem value="DF">Distrito Federal</SelectItem>
+                              <SelectItem value="MG">Minas Gerais</SelectItem>
+                              <SelectItem value="SP">São Paulo</SelectItem>
+                              <SelectItem value="TO">Tocantins</SelectItem>
+                              <SelectItem value="MT">Mato Grosso</SelectItem>
+                              <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Telefone</Label>
+                          <Input value={newClinica.telefone} onChange={(e) => setNewClinica({...newClinica, telefone: e.target.value})} placeholder="(62) 99999-9999" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Endereço</Label>
+                        <Input value={newClinica.endereco} onChange={(e) => setNewClinica({...newClinica, endereco: e.target.value})} placeholder="Rua, número, bairro" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input value={newClinica.email} onChange={(e) => setNewClinica({...newClinica, email: e.target.value})} placeholder="email@clinica.com" type="email" />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setNewClinicaDialog(false)}>Cancelar</Button>
+                      <Button onClick={handleCreateClinica} variant="primary_cta">Adicionar Clínica</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Cidade</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allClinicas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma clínica cadastrada</TableCell>
+                      </TableRow>
+                    ) : (
+                      allClinicas.map((clinica) => (
+                        <TableRow key={clinica.id} className={!clinica.ativo ? 'opacity-50' : ''}>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <Input value={editingClinicaValues.nome} onChange={(e) => setEditingClinicaValues({...editingClinicaValues, nome: e.target.value})} className="w-40" />
+                            ) : clinica.nome}
+                          </TableCell>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <Input value={editingClinicaValues.cidade} onChange={(e) => setEditingClinicaValues({...editingClinicaValues, cidade: e.target.value})} className="w-32" />
+                            ) : clinica.cidade}
+                          </TableCell>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <Select value={editingClinicaValues.estado} onValueChange={(v) => setEditingClinicaValues({...editingClinicaValues, estado: v})}>
+                                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="GO">GO</SelectItem>
+                                  <SelectItem value="DF">DF</SelectItem>
+                                  <SelectItem value="MG">MG</SelectItem>
+                                  <SelectItem value="SP">SP</SelectItem>
+                                  <SelectItem value="TO">TO</SelectItem>
+                                  <SelectItem value="MT">MT</SelectItem>
+                                  <SelectItem value="MS">MS</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : clinica.estado}
+                          </TableCell>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <Input value={editingClinicaValues.telefone} onChange={(e) => setEditingClinicaValues({...editingClinicaValues, telefone: e.target.value})} className="w-32" />
+                            ) : clinica.telefone || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <Input value={editingClinicaValues.email} onChange={(e) => setEditingClinicaValues({...editingClinicaValues, email: e.target.value})} className="w-40" />
+                            ) : clinica.email || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={clinica.ativo ? 'default' : 'secondary'}>{clinica.ativo ? 'Ativa' : 'Inativa'}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {editingClinica === clinica.id ? (
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => handleUpdateClinica(clinica.id)}>Salvar</Button>
+                                <Button size="sm" variant="outline" onClick={() => { setEditingClinica(null); setEditingClinicaValues({ nome: '', cidade: '', estado: '', endereco: '', telefone: '', email: '' }); }}>Cancelar</Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => { setEditingClinica(clinica.id); setEditingClinicaValues({ nome: clinica.nome, cidade: clinica.cidade, estado: clinica.estado || 'GO', endereco: clinica.endereco || '', telefone: clinica.telefone || '', email: clinica.email || '' }); }}><Edit className="h-4 w-4" /></Button>
+                                {clinica.ativo && (
+                                  <Button size="sm" variant="destructive" onClick={() => { if (confirm(`Desativar clínica "${clinica.nome}"?`)) handleDeleteClinica(clinica.id, clinica.nome); }}><Trash2 className="h-4 w-4" /></Button>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Configurações */}
           <TabsContent value="configuracoes" className="space-y-6">
             <Card>
@@ -3221,6 +3460,38 @@ const Admin = () => {
               <Button onClick={handleCreateOrdemServico} variant="primary_cta">
                 Registrar Procedimento
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Proposta de Data */}
+        <Dialog open={propostaDialog} onOpenChange={setPropostaDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Propor Data/Hora ao Cliente</DialogTitle>
+              <DialogDescription>
+                O cliente será notificado e poderá aceitar ou solicitar nova data
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data *</Label>
+                  <Input type="date" value={propostaData} onChange={(e) => setPropostaData(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Hora *</Label>
+                  <Input type="time" value={propostaHora} onChange={(e) => setPropostaHora(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Observações (opcional)</Label>
+                <Textarea value={propostaObservacoes} onChange={(e) => setPropostaObservacoes(e.target.value)} placeholder="Informações adicionais..." rows={2} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPropostaDialog(false)}>Cancelar</Button>
+              <Button onClick={handleEnviarProposta} variant="primary_cta"><Send className="h-4 w-4 mr-2" />Enviar Proposta</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

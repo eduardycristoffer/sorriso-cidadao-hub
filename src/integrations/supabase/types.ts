@@ -242,6 +242,7 @@ export type Database = {
           clinica_id: string | null
           created_at: string
           data_confirmada: string | null
+          data_proposta_admin: string | null
           data_solicitada: string
           dentista_id: string | null
           id: string
@@ -249,6 +250,7 @@ export type Database = {
           observacoes_cliente: string | null
           observacoes_internas: string | null
           procedimento_id: string | null
+          resposta_cliente: string | null
           status: string | null
           updated_at: string
           valor_pago: number | null
@@ -258,6 +260,7 @@ export type Database = {
           clinica_id?: string | null
           created_at?: string
           data_confirmada?: string | null
+          data_proposta_admin?: string | null
           data_solicitada: string
           dentista_id?: string | null
           id?: string
@@ -265,6 +268,7 @@ export type Database = {
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
           procedimento_id?: string | null
+          resposta_cliente?: string | null
           status?: string | null
           updated_at?: string
           valor_pago?: number | null
@@ -274,6 +278,7 @@ export type Database = {
           clinica_id?: string | null
           created_at?: string
           data_confirmada?: string | null
+          data_proposta_admin?: string | null
           data_solicitada?: string
           dentista_id?: string | null
           id?: string
@@ -281,6 +286,7 @@ export type Database = {
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
           procedimento_id?: string | null
+          resposta_cliente?: string | null
           status?: string | null
           updated_at?: string
           valor_pago?: number | null
@@ -532,15 +538,25 @@ export type Database = {
           clinica_nome: string
           created_at: string
           data_confirmada: string
+          data_proposta_admin: string
           data_solicitada: string
           dentista_id: string
           id: string
           observacoes_cliente: string
           procedimento_id: string
           procedimento_nome: string
+          resposta_cliente: string
           status: string
           valor_pago: number
         }[]
+      }
+      responder_proposta_consulta: {
+        Args: {
+          p_nova_data_sugerida?: string
+          p_ordem_id: string
+          p_resposta: string
+        }
+        Returns: string
       }
       validar_cliente_login: {
         Args: { p_cpf: string; p_email: string }
