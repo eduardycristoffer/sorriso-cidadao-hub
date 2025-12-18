@@ -79,7 +79,15 @@ const WizardConsulta = ({
         .order("nome");
 
       if (error) throw error;
-      setProcedimentos(data || []);
+      
+      // Ordenar para que "Avaliação Gratuita" apareça primeiro
+      const sortedData = (data || []).sort((a, b) => {
+        if (a.nome === 'Avaliação Gratuita') return -1;
+        if (b.nome === 'Avaliação Gratuita') return 1;
+        return a.nome.localeCompare(b.nome);
+      });
+      
+      setProcedimentos(sortedData);
     } catch (error) {
       console.error("Error loading procedimentos:", error);
     }
@@ -95,6 +103,12 @@ const WizardConsulta = ({
 
       if (error) throw error;
       setClinicas(data || []);
+      
+      // Pré-selecionar clínica de Anápolis
+      const anapolisClinica = data?.find(c => c.cidade === 'Anápolis');
+      if (anapolisClinica) {
+        setClinica(anapolisClinica);
+      }
     } catch (error) {
       console.error("Error loading clinicas:", error);
     }
