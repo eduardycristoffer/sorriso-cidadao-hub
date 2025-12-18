@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays, ClipboardList } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays, ClipboardList, TrendingUp, BarChart3 } from "lucide-react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -118,6 +119,28 @@ const Admin = () => {
   const [procedimentosUsuario, setProcedimentosUsuario] = useState<any>(null);
   const [historicoProcedimentos, setHistoricoProcedimentos] = useState<any[]>([]);
   const [procedimentosLoading, setProcedimentosLoading] = useState(false);
+
+  // Estados para Adicionar Procedimento ao Cliente
+  const [addProcedimentoDialog, setAddProcedimentoDialog] = useState(false);
+  const [addProcedimentoUsuario, setAddProcedimentoUsuario] = useState<any>(null);
+  const [usarProcedimentoManual, setUsarProcedimentoManual] = useState(false);
+  const [clinicas, setClinicas] = useState<any[]>([]);
+  const [dentistas, setDentistas] = useState<any[]>([]);
+  const [newOrdemServico, setNewOrdemServico] = useState({
+    procedimento_id: '',
+    nome_procedimento_manual: '',
+    valor_pago: '',
+    clinica_id: '',
+    dentista_id: '',
+    data_solicitada: '',
+    status: 'realizada',
+    observacoes_internas: ''
+  });
+
+  // Estados para LTV e Relatórios
+  const [clienteLtv, setClienteLtv] = useState<any>(null);
+  const [relatorioClientes, setRelatorioClientes] = useState<any>(null);
+  const [relatorioLoading, setRelatorioLoading] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -994,7 +1017,124 @@ const Admin = () => {
   const handleOpenProcedimentos = async (usuario: any) => {
     setProcedimentosUsuario(usuario);
     setProcedimentosDialog(true);
-    await loadHistoricoProcedimentos(usuario.id);
+    await Promise.all([
+      loadHistoricoProcedimentos(usuario.id),
+      loadClienteLtv(usuario.id)
+    ]);
+  };
+
+  // Carregar LTV do cliente
+  const loadClienteLtv = async (usuarioId: string) => {
+    try {
+      const data = await callAdminOperation('get_cliente_ltv', { usuario_id: usuarioId });
+      setClienteLtv(data);
+    } catch (error: any) {
+      console.error('Erro ao carregar LTV:', error);
+    }
+  };
+
+  // Carregar clínicas e dentistas
+  const loadClinicasDentistas = async () => {
+    try {
+      const [clinicasData, dentistasData] = await Promise.all([
+        callAdminOperation('list_clinicas'),
+        callAdminOperation('list_dentistas')
+      ]);
+      setClinicas(clinicasData || []);
+      setDentistas(dentistasData || []);
+    } catch (error: any) {
+      console.error('Erro ao carregar clínicas/dentistas:', error);
+    }
+  };
+
+  // Abrir dialog de adicionar procedimento
+  const handleOpenAddProcedimento = async (usuario: any) => {
+    setAddProcedimentoUsuario(usuario);
+    setAddProcedimentoDialog(true);
+    setUsarProcedimentoManual(false);
+    setNewOrdemServico({
+      procedimento_id: '',
+      nome_procedimento_manual: '',
+      valor_pago: '',
+      clinica_id: '',
+      dentista_id: '',
+      data_solicitada: new Date().toISOString().split('T')[0],
+      status: 'realizada',
+      observacoes_internas: ''
+    });
+    await loadClinicasDentistas();
+  };
+
+  // Criar ordem de serviço (atrelar procedimento)
+  const handleCreateOrdemServico = async () => {
+    try {
+      if (!newOrdemServico.valor_pago) {
+        toast({
+          title: "Erro",
+          description: "Valor pago é obrigatório",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!usarProcedimentoManual && !newOrdemServico.procedimento_id) {
+        toast({
+          title: "Erro",
+          description: "Selecione um procedimento ou digite manualmente",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (usarProcedimentoManual && !newOrdemServico.nome_procedimento_manual) {
+        toast({
+          title: "Erro",
+          description: "Digite o nome do procedimento",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await callAdminOperation('create_ordem_servico', {
+        cliente_id: addProcedimentoUsuario.id,
+        procedimento_id: usarProcedimentoManual ? null : newOrdemServico.procedimento_id,
+        nome_procedimento_manual: usarProcedimentoManual ? newOrdemServico.nome_procedimento_manual : null,
+        valor_pago: parseFloat(newOrdemServico.valor_pago),
+        clinica_id: newOrdemServico.clinica_id || null,
+        dentista_id: newOrdemServico.dentista_id || null,
+        data_solicitada: newOrdemServico.data_solicitada || new Date().toISOString(),
+        data_confirmada: newOrdemServico.data_solicitada || new Date().toISOString(),
+        status: newOrdemServico.status,
+        observacoes_internas: newOrdemServico.observacoes_internas || null,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Procedimento registrado com sucesso!",
+      });
+
+      setAddProcedimentoDialog(false);
+      loadDashboardData();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao registrar procedimento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Carregar relatório de clientes
+  const loadRelatorioClientes = async () => {
+    try {
+      setRelatorioLoading(true);
+      const data = await callAdminOperation('list_relatorio_clientes');
+      setRelatorioClientes(data);
+    } catch (error: any) {
+      console.error('Erro ao carregar relatório:', error);
+    } finally {
+      setRelatorioLoading(false);
+    }
   };
 
   // Funções para Configurações
@@ -1180,36 +1320,39 @@ const Admin = () => {
 
       <div className="container py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="dashboard">
-              <Settings className="h-4 w-4 mr-2" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="usuarios">
-              <Users className="h-4 w-4 mr-2" />
-              Usuários
-            </TabsTrigger>
-            <TabsTrigger value="ordens">
-              <FileText className="h-4 w-4 mr-2" />
-              Ordens
-            </TabsTrigger>
-            <TabsTrigger value="vendas">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Vendas
-            </TabsTrigger>
-            <TabsTrigger value="procedimentos">
-              <Calendar className="h-4 w-4 mr-2" />
-              Procedimentos
-            </TabsTrigger>
-            <TabsTrigger value="categorias">
-              <FileText className="h-4 w-4 mr-2" />
-              Categorias
-            </TabsTrigger>
-            <TabsTrigger value="configuracoes">
-              <Settings className="h-4 w-4 mr-2" />
-              Config
-            </TabsTrigger>
-          </TabsList>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <TabsList className="inline-flex w-full md:grid md:grid-cols-8 gap-1">
+              <TabsTrigger value="dashboard" className="text-xs md:text-sm">
+                <Settings className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="usuarios" className="text-xs md:text-sm">
+                <Users className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Usuários</span>
+              </TabsTrigger>
+              <TabsTrigger value="ordens" className="text-xs md:text-sm">
+                <FileText className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Ordens</span>
+              </TabsTrigger>
+              <TabsTrigger value="relatorios" className="text-xs md:text-sm" onClick={() => loadRelatorioClientes()}>
+                <BarChart3 className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Relatórios</span>
+              </TabsTrigger>
+              <TabsTrigger value="procedimentos" className="text-xs md:text-sm">
+                <Calendar className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Procedimentos</span>
+              </TabsTrigger>
+              <TabsTrigger value="categorias" className="text-xs md:text-sm">
+                <FileText className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Categorias</span>
+              </TabsTrigger>
+              <TabsTrigger value="configuracoes" className="text-xs md:text-sm">
+                <Settings className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Config</span>
+              </TabsTrigger>
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           {/* Dashboard */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -1677,7 +1820,16 @@ const Admin = () => {
                               />
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
+                              <div className="flex gap-1 flex-wrap">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleOpenAddProcedimento(usuario)}
+                                  title="Adicionar Procedimento"
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1890,66 +2042,149 @@ const Admin = () => {
             </Dialog>
            </TabsContent>
 
-          {/* Vendas */}
-          <TabsContent value="vendas" className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Relatórios */}
+          <TabsContent value="relatorios" className="space-y-6">
+            {/* Cards de Métricas */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ {stats.faturamentoMensal.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">
+                    R$ {relatorioClientes?.totais?.ltv_total?.toFixed(2).replace('.', ',') || '0,00'}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Faturamento mensal bruto
+                    Assinaturas + Procedimentos
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Receita Líquida</CardTitle>
+                  <CardTitle className="text-sm font-medium">Assinaturas</CardTitle>
+                  <DollarSign className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">
+                    R$ {relatorioClientes?.totais?.assinaturas?.toFixed(2).replace('.', ',') || '0,00'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Receita com cartões
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Procedimentos</CardTitle>
                   <DollarSign className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">R$ {stats.faturamentoLiquido.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    R$ {relatorioClientes?.totais?.procedimentos?.toFixed(2).replace('.', ',') || '0,00'}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Após descontos e taxas
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Assinaturas Vendidas</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.assinaturasAtivas}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Planos ativos
+                    Receita com atendimentos
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 59,90</div>
+                  <div className="text-2xl font-bold">
+                    R$ {relatorioClientes?.totais?.ticket_medio?.toFixed(2).replace('.', ',') || '0,00'}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Valor por assinatura
+                    Por transação
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">LTV Médio</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-purple-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-600">
+                    R$ {relatorioClientes?.totais?.ltv_medio?.toFixed(2).replace('.', ',') || '0,00'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Por cliente
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Vendas</CardTitle>
-                  <CardDescription>Usuários cadastrados via webhook</CardDescription>
-                </CardHeader>
-                <CardContent>
+            {/* Tabela de Faturamento por Cliente */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Faturamento por Cliente</CardTitle>
+                  <CardDescription>Ranking de clientes por LTV (Lifetime Value)</CardDescription>
+                </div>
+                <Button variant="outline" onClick={loadRelatorioClientes} disabled={relatorioLoading}>
+                  {relatorioLoading ? "Carregando..." : "Atualizar"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {relatorioLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Carregando relatório...</div>
+                ) : !relatorioClientes?.clientes ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Clique em "Atualizar" para carregar o relatório
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead className="text-right">Assinaturas</TableHead>
+                          <TableHead className="text-right">Procedimentos</TableHead>
+                          <TableHead className="text-right">LTV Total</TableHead>
+                          <TableHead className="text-right">Ticket Médio</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {relatorioClientes.clientes.filter((c: any) => c.ltv > 0).map((cliente: any, index: number) => (
+                          <TableRow key={cliente.id}>
+                            <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                            <TableCell className="font-medium">{cliente.nome}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{cliente.email}</TableCell>
+                            <TableCell className="text-right text-blue-600">
+                              R$ {cliente.assinaturas_valor?.toFixed(2).replace('.', ',')}
+                            </TableCell>
+                            <TableCell className="text-right text-green-600">
+                              R$ {cliente.procedimentos_valor?.toFixed(2).replace('.', ',')}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              R$ {cliente.ltv?.toFixed(2).replace('.', ',')}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              R$ {cliente.ticket_medio?.toFixed(2).replace('.', ',')}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Resumo de vendas via webhook */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Histórico de Vendas (Webhook)</CardTitle>
+                <CardDescription>Usuários cadastrados via pagamento online</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1958,7 +2193,6 @@ const Admin = () => {
                         <TableHead>Order ID</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Data</TableHead>
-                        <TableHead>Valor</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1977,69 +2211,13 @@ const Admin = () => {
                           <TableCell>
                             {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
                           </TableCell>
-                          <TableCell>
-                            <span className="font-bold text-green-600">R$ 59,90</span>
-                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Métricas de Conversão</CardTitle>
-                  <CardDescription>Performance das vendas</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Taxa de Conversão</span>
-                      <span className="font-bold">
-                        {stats.totalUsuarios > 0 ? ((stats.assinaturasAtivas / stats.totalUsuarios) * 100).toFixed(1) : 0}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full" 
-                        style={{ 
-                          width: `${stats.totalUsuarios > 0 ? (stats.assinaturasAtivas / stats.totalUsuarios) * 100 : 0}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Assinaturas Ativas</span>
-                      <span className="font-bold">{stats.assinaturasAtivas}/{stats.totalUsuarios}</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full" 
-                        style={{ 
-                          width: `${stats.totalUsuarios > 0 ? (stats.assinaturasAtivas / stats.totalUsuarios) * 100 : 0}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">{stats.assinaturasAtivas}</div>
-                        <div className="text-xs text-muted-foreground">Vendas Realizadas</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-blue-600">{stats.totalUsuarios - stats.assinaturasAtivas}</div>
-                        <div className="text-xs text-muted-foreground">Leads Pendentes</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
 
@@ -2814,67 +2992,245 @@ const Admin = () => {
 
         {/* Dialog de Histórico de Procedimentos */}
         <Dialog open={procedimentosDialog} onOpenChange={setProcedimentosDialog}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Histórico de Procedimentos - {procedimentosUsuario?.nome}</DialogTitle>
               <DialogDescription>
-                Registro de ordens de serviço e procedimentos solicitados
+                Registro de ordens de serviço e procedimentos realizados
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Cards de LTV */}
+              {clienteLtv && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      R$ {clienteLtv.total?.toFixed(2).replace('.', ',')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">LTV Total</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">
+                      R$ {clienteLtv.assinaturas?.toFixed(2).replace('.', ',')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Assinaturas ({clienteLtv.qtd_assinaturas})</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">
+                      R$ {clienteLtv.procedimentos?.toFixed(2).replace('.', ',')}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Procedimentos ({clienteLtv.qtd_procedimentos})</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">
+                      {clienteLtv.qtd_procedimentos + clienteLtv.qtd_assinaturas}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Transações</div>
+                  </div>
+                </div>
+              )}
+
               {procedimentosLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Carregando procedimentos...</div>
               ) : historicoProcedimentos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">Nenhum procedimento solicitado</div>
+                <div className="text-center py-8 text-muted-foreground">Nenhum procedimento registrado</div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Procedimento</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data Solicitada</TableHead>
-                      <TableHead>Data Confirmada</TableHead>
-                      <TableHead>Clínica</TableHead>
-                      <TableHead>Dentista</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {historicoProcedimentos.map((proc: any) => (
-                      <TableRow key={proc.id}>
-                        <TableCell className="font-medium">
-                          {proc.procedimentos?.nome || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(proc.status)}
-                        </TableCell>
-                        <TableCell>
-                          {proc.data_solicitada 
-                            ? format(new Date(proc.data_solicitada), 'dd/MM/yyyy', { locale: ptBR })
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {proc.data_confirmada 
-                            ? format(new Date(proc.data_confirmada), 'dd/MM/yyyy', { locale: ptBR })
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {proc.clinicas?.nome || '-'}
-                          {proc.clinicas?.cidade && (
-                            <span className="text-xs text-muted-foreground block">{proc.clinicas.cidade}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {proc.dentistas?.nome || '-'}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Procedimento</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Valor Pago</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Clínica</TableHead>
+                        <TableHead>Dentista</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {historicoProcedimentos.map((proc: any) => (
+                        <TableRow key={proc.id}>
+                          <TableCell className="font-medium">
+                            {proc.nome_procedimento_manual || proc.procedimentos?.nome || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(proc.status)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-green-600">
+                            {proc.valor_pago 
+                              ? `R$ ${parseFloat(proc.valor_pago).toFixed(2).replace('.', ',')}`
+                              : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {proc.data_solicitada 
+                              ? format(new Date(proc.data_solicitada), 'dd/MM/yyyy', { locale: ptBR })
+                              : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {proc.clinicas?.nome || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {proc.dentistas?.nome || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
               <div className="text-sm text-muted-foreground text-right">
                 Total: {historicoProcedimentos.length} procedimento(s)
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Adicionar Procedimento ao Cliente */}
+        <Dialog open={addProcedimentoDialog} onOpenChange={setAddProcedimentoDialog}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Registrar Procedimento</DialogTitle>
+              <DialogDescription>
+                Atrelar procedimento ao cliente: {addProcedimentoUsuario?.nome}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Toggle para procedimento manual */}
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="manual-mode"
+                  checked={usarProcedimentoManual}
+                  onCheckedChange={setUsarProcedimentoManual}
+                />
+                <Label htmlFor="manual-mode">Digitar nome manualmente</Label>
+              </div>
+
+              {usarProcedimentoManual ? (
+                <div className="space-y-2">
+                  <Label>Nome do Procedimento *</Label>
+                  <Input
+                    value={newOrdemServico.nome_procedimento_manual}
+                    onChange={(e) => setNewOrdemServico({...newOrdemServico, nome_procedimento_manual: e.target.value})}
+                    placeholder="Ex: Extração dente siso"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Procedimento *</Label>
+                  <Select 
+                    value={newOrdemServico.procedimento_id} 
+                    onValueChange={(value) => setNewOrdemServico({...newOrdemServico, procedimento_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o procedimento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {procedimentos.map((proc: any) => (
+                        <SelectItem key={proc.id} value={proc.id}>
+                          {proc.nome} - R$ {proc.preco_min?.toFixed(2)}
+                          {proc.preco_max && ` a R$ ${proc.preco_max.toFixed(2)}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Valor Pago (R$) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={newOrdemServico.valor_pago}
+                  onChange={(e) => setNewOrdemServico({...newOrdemServico, valor_pago: e.target.value})}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Clínica</Label>
+                  <Select 
+                    value={newOrdemServico.clinica_id} 
+                    onValueChange={(value) => setNewOrdemServico({...newOrdemServico, clinica_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clinicas.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nome} - {c.cidade}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Dentista</Label>
+                  <Select 
+                    value={newOrdemServico.dentista_id} 
+                    onValueChange={(value) => setNewOrdemServico({...newOrdemServico, dentista_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dentistas.map((d: any) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data</Label>
+                  <Input
+                    type="date"
+                    value={newOrdemServico.data_solicitada}
+                    onChange={(e) => setNewOrdemServico({...newOrdemServico, data_solicitada: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select 
+                    value={newOrdemServico.status} 
+                    onValueChange={(value) => setNewOrdemServico({...newOrdemServico, status: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="realizada">Realizada</SelectItem>
+                      <SelectItem value="confirmada">Confirmada</SelectItem>
+                      <SelectItem value="solicitada">Solicitada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Observações</Label>
+                <Textarea
+                  value={newOrdemServico.observacoes_internas}
+                  onChange={(e) => setNewOrdemServico({...newOrdemServico, observacoes_internas: e.target.value})}
+                  placeholder="Observações internas..."
+                  rows={2}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddProcedimentoDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateOrdemServico} variant="primary_cta">
+                Registrar Procedimento
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

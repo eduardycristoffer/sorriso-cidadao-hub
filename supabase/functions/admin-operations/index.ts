@@ -433,6 +433,174 @@ serve(async (req) => {
         console.log('Histórico de procedimentos:', ordensUsuario?.length);
         break;
 
+      // CRIAR ORDEM DE SERVIÇO (ATRELAR PROCEDIMENTO AO CLIENTE)
+      case 'create_ordem_servico':
+        const { data: novaOrdem, error: createOrdemError } = await supabase
+          .from('ordens_servico')
+          .insert({
+            cliente_id: data.cliente_id,
+            procedimento_id: data.procedimento_id || null,
+            nome_procedimento_manual: data.nome_procedimento_manual || null,
+            clinica_id: data.clinica_id || null,
+            dentista_id: data.dentista_id || null,
+            data_solicitada: data.data_solicitada || new Date().toISOString(),
+            data_confirmada: data.data_confirmada || null,
+            status: data.status || 'realizada',
+            valor_pago: data.valor_pago || null,
+            observacoes_cliente: data.observacoes_cliente || null,
+            observacoes_internas: data.observacoes_internas || null,
+          })
+          .select()
+          .single();
+        
+        if (createOrdemError) throw createOrdemError;
+        result = novaOrdem;
+        console.log('Ordem de serviço criada:', novaOrdem);
+        break;
+
+      // ATUALIZAR VALOR PAGO EM ORDEM
+      case 'update_ordem_valor':
+        const { data: ordemAtualizada, error: updateOrdemValorError } = await supabase
+          .from('ordens_servico')
+          .update({
+            valor_pago: data.valor_pago,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updateOrdemValorError) throw updateOrdemValorError;
+        result = ordemAtualizada;
+        console.log('Valor da ordem atualizado:', ordemAtualizada);
+        break;
+
+      // CALCULAR LTV DO CLIENTE
+      case 'get_cliente_ltv':
+        // Buscar valores de ordens de serviço
+        const { data: ordensLtv, error: ordensLtvError } = await supabase
+          .from('ordens_servico')
+          .select('valor_pago')
+          .eq('cliente_id', data.usuario_id)
+          .not('valor_pago', 'is', null);
+        
+        if (ordensLtvError) throw ordensLtvError;
+
+        // Buscar valores de assinaturas
+        const { data: assinaturasLtv, error: assinaturasLtvError } = await supabase
+          .from('historico_assinaturas')
+          .select('valor')
+          .eq('usuario_id', data.usuario_id);
+        
+        if (assinaturasLtvError) throw assinaturasLtvError;
+
+        const totalProcedimentos = ordensLtv?.reduce((acc, o) => acc + (parseFloat(o.valor_pago) || 0), 0) || 0;
+        const totalAssinaturas = assinaturasLtv?.reduce((acc, a) => acc + (parseFloat(a.valor) || 0), 0) || 0;
+        const ltvTotal = totalProcedimentos + totalAssinaturas;
+
+        result = {
+          procedimentos: totalProcedimentos,
+          assinaturas: totalAssinaturas,
+          total: ltvTotal,
+          qtd_procedimentos: ordensLtv?.length || 0,
+          qtd_assinaturas: assinaturasLtv?.length || 0
+        };
+        console.log('LTV calculado:', result);
+        break;
+
+      // RELATÓRIO DE CLIENTES COM LTV
+      case 'list_relatorio_clientes':
+        // Buscar todos os usuários com seus dados
+        const { data: usuariosRelatorio, error: usuariosRelatorioError } = await supabase
+          .from('usuarios')
+          .select('id, nome, email, assinatura_status')
+          .order('nome');
+        
+        if (usuariosRelatorioError) throw usuariosRelatorioError;
+
+        // Buscar todas as ordens com valores
+        const { data: todasOrdens, error: todasOrdensError } = await supabase
+          .from('ordens_servico')
+          .select('cliente_id, valor_pago');
+        
+        if (todasOrdensError) throw todasOrdensError;
+
+        // Buscar todas as assinaturas
+        const { data: todasAssinaturas, error: todasAssinaturasError } = await supabase
+          .from('historico_assinaturas')
+          .select('usuario_id, valor');
+        
+        if (todasAssinaturasError) throw todasAssinaturasError;
+
+        // Calcular LTV por cliente
+        const relatorioClientes = usuariosRelatorio?.map(usuario => {
+          const ordensCliente = todasOrdens?.filter(o => o.cliente_id === usuario.id) || [];
+          const assinaturasCliente = todasAssinaturas?.filter(a => a.usuario_id === usuario.id) || [];
+          
+          const totalProcedimentosCliente = ordensCliente.reduce((acc, o) => acc + (parseFloat(o.valor_pago) || 0), 0);
+          const totalAssinaturasCliente = assinaturasCliente.reduce((acc, a) => acc + (parseFloat(a.valor) || 0), 0);
+          const ltvCliente = totalProcedimentosCliente + totalAssinaturasCliente;
+          const qtdTransacoes = ordensCliente.filter(o => o.valor_pago).length + assinaturasCliente.length;
+
+          return {
+            ...usuario,
+            procedimentos_valor: totalProcedimentosCliente,
+            assinaturas_valor: totalAssinaturasCliente,
+            ltv: ltvCliente,
+            qtd_transacoes: qtdTransacoes,
+            ticket_medio: qtdTransacoes > 0 ? ltvCliente / qtdTransacoes : 0
+          };
+        });
+
+        // Ordenar por LTV decrescente
+        relatorioClientes?.sort((a, b) => b.ltv - a.ltv);
+
+        // Calcular totais
+        const totalGeralProcedimentos = relatorioClientes?.reduce((acc, c) => acc + c.procedimentos_valor, 0) || 0;
+        const totalGeralAssinaturas = relatorioClientes?.reduce((acc, c) => acc + c.assinaturas_valor, 0) || 0;
+        const totalGeralLtv = totalGeralProcedimentos + totalGeralAssinaturas;
+        const totalTransacoes = relatorioClientes?.reduce((acc, c) => acc + c.qtd_transacoes, 0) || 0;
+        const ticketMedioGeral = totalTransacoes > 0 ? totalGeralLtv / totalTransacoes : 0;
+        const ltvMedioCliente = relatorioClientes?.length > 0 ? totalGeralLtv / relatorioClientes.length : 0;
+
+        result = {
+          clientes: relatorioClientes,
+          totais: {
+            procedimentos: totalGeralProcedimentos,
+            assinaturas: totalGeralAssinaturas,
+            ltv_total: totalGeralLtv,
+            ticket_medio: ticketMedioGeral,
+            ltv_medio: ltvMedioCliente,
+            total_clientes: relatorioClientes?.length || 0
+          }
+        };
+        console.log('Relatório de clientes:', result.totais);
+        break;
+
+      // LISTAR CLÍNICAS
+      case 'list_clinicas':
+        const { data: clinicasData, error: listClinicasError } = await supabase
+          .from('clinicas')
+          .select('*')
+          .eq('ativo', true)
+          .order('nome');
+        
+        if (listClinicasError) throw listClinicasError;
+        result = clinicasData;
+        break;
+
+      // LISTAR DENTISTAS
+      case 'list_dentistas':
+        const { data: dentistasData, error: listDentistasError } = await supabase
+          .from('dentistas')
+          .select('*, clinicas(nome)')
+          .eq('ativo', true)
+          .order('nome');
+        
+        if (listDentistasError) throw listDentistasError;
+        result = dentistasData;
+        break;
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }
