@@ -30,15 +30,12 @@ const Login = () => {
         return;
       }
 
-      // Verificar se o cliente existe no banco de dados
+      // Verificar se o cliente existe usando RPC (bypassa RLS)
       const { data: userData, error: userError } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("email", email)
-        .eq("cpf", cpf.replace(/\D/g, '')) // Remove formatação do CPF
-        .eq("role", "cliente")
-        .eq("ativo", true)
-        .maybeSingle();
+        .rpc('validar_cliente_login', {
+          p_email: email,
+          p_cpf: cpf.replace(/\D/g, '') // Remove formatação do CPF
+        });
 
       if (userError) {
         console.error("Erro ao buscar usuário:", userError);
@@ -50,7 +47,10 @@ const Login = () => {
         return;
       }
 
-      if (!userData) {
+      // RPC retorna array, pegar primeiro resultado
+      const clienteData = Array.isArray(userData) ? userData[0] : userData;
+
+      if (!clienteData) {
         toast({
           title: "Dados não encontrados",
           description: "Verifique seu e-mail e CPF, ou entre em contato conosco.",
@@ -60,7 +60,7 @@ const Login = () => {
       }
 
       // Verificar status da assinatura
-      if (userData.assinatura_status !== 'ATIVA') {
+      if (clienteData.assinatura_status !== 'ATIVA') {
         toast({
           title: "Assinatura não ativa",
           description: "Sua assinatura precisa estar ativa para acessar o painel.",
@@ -70,10 +70,10 @@ const Login = () => {
       }
 
       // Salvar email na session para acesso
-      sessionStorage.setItem('client_email', userData.email);
+      sessionStorage.setItem('client_email', clienteData.email);
 
       // Se o usuário tem auth_user_id, tentar fazer login via Supabase
-      if (userData.auth_user_id) {
+      if (clienteData.auth_user_id) {
         try {
           // Tentar fazer login usando magic link simples
           const { error: signInError } = await supabase.auth.signInWithOtp({

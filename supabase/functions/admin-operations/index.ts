@@ -24,6 +24,54 @@ serve(async (req) => {
     let result;
 
     switch (action) {
+      // CRIAR USUÁRIO COM AUTH ADMIN (sem rate limit)
+      case 'create_usuario':
+        console.log('Criando usuário:', data.email);
+        
+        // Criar usuário no Auth usando admin API (sem rate limit de email)
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+          email: data.email,
+          password: data.password,
+          email_confirm: true, // Auto-confirmar email
+          user_metadata: {
+            nome: data.nome
+          }
+        });
+
+        if (authError) {
+          console.error('Erro ao criar usuário no Auth:', authError);
+          throw authError;
+        }
+
+        console.log('Usuário criado no Auth:', authUser.user?.id);
+
+        // Inserir na tabela usuarios
+        const { data: newUsuario, error: createUserError } = await supabase
+          .from('usuarios')
+          .insert({
+            nome: data.nome,
+            email: data.email,
+            telefone: data.telefone || null,
+            cpf: data.cpf || null,
+            role: data.role || 'cliente',
+            auth_user_id: authUser.user?.id,
+            ativo: true,
+            assinatura_status: 'PENDENTE'
+          })
+          .select()
+          .single();
+
+        if (createUserError) {
+          console.error('Erro ao inserir usuário na tabela:', createUserError);
+          // Tentar deletar o usuário do Auth se falhou inserir na tabela
+          await supabase.auth.admin.deleteUser(authUser.user!.id);
+          throw createUserError;
+        }
+
+        result = { user: newUsuario, auth_user_id: authUser.user?.id };
+        console.log('Usuário criado com sucesso:', newUsuario);
+        break;
+
       // CATEGORIAS
       case 'create_categoria':
         const { data: newCategoria, error: createCatError } = await supabase
