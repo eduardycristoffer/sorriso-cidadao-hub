@@ -502,7 +502,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validar_cliente_login: {
+        Args: { p_cpf: string; p_email: string }
+        Returns: {
+          assinatura_status: string
+          assinatura_validade: string
+          ativo: boolean
+          auth_user_id: string
+          cpf: string
+          email: string
+          id: string
+          nome: string
+          telefone: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -712,31 +712,27 @@ const Admin = () => {
 
   const handleCreateUser = async () => {
     try {
-      // Criar usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Validar campos obrigatórios
+      if (!newUser.nome || !newUser.email || !newUser.password) {
+        toast({
+          title: "Erro",
+          description: "Nome, email e senha são obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Criar usuário via edge function (usa auth.admin.createUser sem rate limit)
+      const result = await callAdminOperation('create_usuario', {
+        nome: newUser.nome,
         email: newUser.email,
         password: newUser.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`
-        }
+        telefone: newUser.telefone || null,
+        cpf: newUser.cpf ? newUser.cpf.replace(/\D/g, '') : null,
+        role: newUser.role || 'cliente'
       });
 
-      if (authError) throw authError;
-
-      // Criar entrada na tabela usuarios
-      const { error: dbError } = await supabase
-        .from("usuarios")
-        .insert({
-          nome: newUser.nome,
-          email: newUser.email,
-          telefone: newUser.telefone,
-          cpf: newUser.cpf,
-          role: newUser.role,
-          auth_user_id: authData.user?.id,
-          ativo: true
-        });
-
-      if (dbError) throw dbError;
+      console.log('Usuário criado:', result);
 
       // Recarregar dados e limpar form
       loadDashboardData();
