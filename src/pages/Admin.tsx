@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
 import { IconPicker, IconDisplay } from "@/components/IconPicker";
-import { createVegaPayment } from "@/services/vegaCheckout";
 
 const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -740,7 +739,7 @@ const Admin = () => {
     }
   };
 
-  // Funções para Pagamentos (Vega Checkout)
+  // Funções para Pagamentos (Vega Checkout via Edge Function)
   const handleCreatePayment = async () => {
     try {
       if (!newPayment.nome || !newPayment.valor) {
@@ -756,54 +755,29 @@ const Admin = () => {
 
       const valorEmCentavos = Math.round(parseFloat(newPayment.valor) * 100);
 
-      // Chamar API Vega diretamente do frontend (usando IP do navegador)
-      console.log('[Admin] Chamando Vega API do frontend...');
-      const vegaResult = await createVegaPayment({
-        nome: newPayment.nome,
-        descricao: newPayment.descricao,
-        valor: valorEmCentavos,
-        clienteEmail: newPayment.cliente_email || undefined,
-        clienteNome: newPayment.cliente_nome || undefined,
-      });
-
-      console.log('[Admin] Resultado Vega:', vegaResult);
-
-      // Salvar no banco via edge function
-      const { data: response, error } = await supabase.functions.invoke('admin-operations', {
+      // Chamar Edge Function que usa IP fixo do Supabase
+      console.log('[Admin] Chamando Edge Function create-payment-link...');
+      const { data: response, error } = await supabase.functions.invoke('create-payment-link', {
         body: {
-          action: 'save_payment_link',
-          data: {
-            nome: newPayment.nome,
-            descricao: newPayment.descricao || null,
-            valor: valorEmCentavos,
-            transaction_token: vegaResult.transactionToken || `LOCAL_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-            pix_code: vegaResult.pixCode || `PIX_PENDENTE_${Date.now()}`,
-            qr_code_url: vegaResult.qrCodeUrl || null,
-            status: vegaResult.success ? 'pending' : 'manual',
-            cliente_email: newPayment.cliente_email || null,
-            cliente_nome: newPayment.cliente_nome || null,
-            vega_integrated: vegaResult.success,
-          }
+          nome: newPayment.nome,
+          descricao: newPayment.descricao || null,
+          valor: valorEmCentavos,
+          cliente_email: newPayment.cliente_email || null,
+          cliente_nome: newPayment.cliente_nome || null,
         }
       });
+
+      console.log('[Admin] Resposta Edge Function:', response);
 
       if (error) throw error;
       if (!response.success) throw new Error(response.error);
 
-      setCreatedPayment({
-        ...response.data,
-        vega_integrated: vegaResult.success,
-        message: vegaResult.success 
-          ? 'Link PIX gerado via Vega Checkout (chamada do frontend)' 
-          : `Fallback local: ${vegaResult.error || 'Vega indisponível'}`
-      });
+      setCreatedPayment(response.data);
 
       toast({
-        title: vegaResult.success ? "Sucesso - Vega OK!" : "Link criado (modo local)",
-        description: vegaResult.success 
-          ? "PIX gerado via Vega Checkout!" 
-          : "Link criado localmente. Vega retornou erro.",
-        variant: vegaResult.success ? "default" : "destructive",
+        title: response.data.vega_integrated ? "Sucesso - PIX Gerado!" : "Link criado (modo local)",
+        description: response.data.message,
+        variant: response.data.vega_integrated ? "default" : "destructive",
       });
 
       loadDashboardData();
