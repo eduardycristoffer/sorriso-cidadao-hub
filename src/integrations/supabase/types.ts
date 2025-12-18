@@ -165,6 +165,50 @@ export type Database = {
           },
         ]
       }
+      historico_assinaturas: {
+        Row: {
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          data_pagamento: string | null
+          id: string
+          metodo_pagamento: string | null
+          observacoes: string | null
+          usuario_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          data_pagamento?: string | null
+          id?: string
+          metodo_pagamento?: string | null
+          observacoes?: string | null
+          usuario_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          data_pagamento?: string | null
+          id?: string
+          metodo_pagamento?: string | null
+          observacoes?: string | null
+          usuario_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_assinaturas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordens_servico: {
         Row: {
           cliente_id: string
@@ -345,6 +389,7 @@ export type Database = {
       usuarios: {
         Row: {
           assinatura_status: string | null
+          assinatura_validade: string | null
           ativo: boolean | null
           auth_user_id: string | null
           cpf: string | null
@@ -359,6 +404,7 @@ export type Database = {
         }
         Insert: {
           assinatura_status?: string | null
+          assinatura_validade?: string | null
           ativo?: boolean | null
           auth_user_id?: string | null
           cpf?: string | null
@@ -373,6 +419,7 @@ export type Database = {
         }
         Update: {
           assinatura_status?: string | null
+          assinatura_validade?: string | null
           ativo?: boolean | null
           auth_user_id?: string | null
           cpf?: string | null
