@@ -759,21 +759,16 @@ const Admin = () => {
     }
   };
 
-  const handleActivateSubscription = async (email) => {
+  const handleActivateSubscription = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ 
-          assinatura_status: 'ATIVA',
-          updated_at: new Date().toISOString()
-        })
-        .eq('email', email);
-
-      if (error) throw error;
+      await callAdminOperation('update_usuario', { 
+        id: userId, 
+        assinatura_status: 'ATIVA' 
+      });
 
       toast({
         title: "Sucesso",
-        description: `Assinatura ativada para ${email}!`,
+        description: "Assinatura ativada com sucesso!",
       });
       
       loadDashboardData();
@@ -1780,7 +1775,7 @@ const Admin = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleActivateSubscription(usuario.email)}
+                                    onClick={() => handleActivateSubscription(usuario.id)}
                                     className="h-6 px-2 text-xs"
                                   >
                                     Ativar
