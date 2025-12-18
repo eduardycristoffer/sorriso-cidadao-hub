@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus } from "lucide-react";
+import { Mail, Lock, ArrowLeft, LogOut, Users, FileText, Calendar, Settings, Plus, Edit, Phone, MapPin, Clock, Check, X, Eye, EyeOff, DollarSign, PieChart, Trash2, UserPlus, History, CalendarDays } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -90,6 +92,20 @@ const Admin = () => {
   });
   const [addDependenteDialogOpen, setAddDependenteDialogOpen] = useState(false);
   const [selectedUsuarioIdForDependente, setSelectedUsuarioIdForDependente] = useState('');
+
+  // Estados para Histórico de Assinaturas
+  const [historicoDialog, setHistoricoDialog] = useState(false);
+  const [historicoUsuario, setHistoricoUsuario] = useState<any>(null);
+  const [historicoAssinaturas, setHistoricoAssinaturas] = useState<any[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [addHistoricoDialog, setAddHistoricoDialog] = useState(false);
+  const [newHistorico, setNewHistorico] = useState({
+    valor: '',
+    data_inicio: '',
+    data_fim: '',
+    metodo_pagamento: '',
+    observacoes: ''
+  });
 
   useEffect(() => {
     checkAuth();
@@ -850,6 +866,89 @@ const Admin = () => {
     }
   };
 
+  // Funções para Histórico de Assinaturas
+  const loadHistoricoAssinaturas = async (usuarioId: string) => {
+    try {
+      setHistoricoLoading(true);
+      const data = await callAdminOperation('list_historico_assinaturas', { usuario_id: usuarioId });
+      setHistoricoAssinaturas(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao carregar histórico",
+        variant: "destructive",
+      });
+    } finally {
+      setHistoricoLoading(false);
+    }
+  };
+
+  const handleOpenHistorico = async (usuario: any) => {
+    setHistoricoUsuario(usuario);
+    setHistoricoDialog(true);
+    await loadHistoricoAssinaturas(usuario.id);
+  };
+
+  const handleCreateHistorico = async () => {
+    try {
+      if (!newHistorico.valor || !newHistorico.data_inicio || !newHistorico.data_fim) {
+        toast({
+          title: "Erro",
+          description: "Valor, data início e data fim são obrigatórios",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await callAdminOperation('create_historico_assinatura', {
+        usuario_id: historicoUsuario.id,
+        valor: parseFloat(newHistorico.valor),
+        data_inicio: newHistorico.data_inicio,
+        data_fim: newHistorico.data_fim,
+        metodo_pagamento: newHistorico.metodo_pagamento || null,
+        observacoes: newHistorico.observacoes || null,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Pagamento registrado e validade atualizada!",
+      });
+
+      setAddHistoricoDialog(false);
+      setNewHistorico({ valor: '', data_inicio: '', data_fim: '', metodo_pagamento: '', observacoes: '' });
+      await loadHistoricoAssinaturas(historicoUsuario.id);
+      loadDashboardData(); // Recarregar para atualizar validade na tabela
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao registrar pagamento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateValidade = async (usuarioId: string, novaValidade: string) => {
+    try {
+      await callAdminOperation('update_usuario_validade', {
+        id: usuarioId,
+        assinatura_validade: novaValidade,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Validade atualizada!",
+      });
+
+      loadDashboardData();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar validade",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -1406,18 +1505,17 @@ const Admin = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>CPF</TableHead>
-                      <TableHead>Order ID</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead>Status Assinatura</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Validade</TableHead>
                       <TableHead>Ativo</TableHead>
-                      <TableHead>Data Cadastro</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
                       {usuarios.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={10} className="text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center text-muted-foreground">
                             Nenhum usuário encontrado
                           </TableCell>
                         </TableRow>
@@ -1429,16 +1527,11 @@ const Admin = () => {
                             <TableCell>{usuario.telefone || '-'}</TableCell>
                             <TableCell>{usuario.cpf || '-'}</TableCell>
                             <TableCell>
-                              <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                                {usuario.order_id || '-'}
-                              </code>
-                            </TableCell>
-                            <TableCell>
                               <Select 
                                 value={usuario.role} 
                                 onValueChange={(value) => handleUpdateUserRole(usuario.id, value)}
                               >
-                                <SelectTrigger className="w-32">
+                                <SelectTrigger className="w-28">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1451,7 +1544,6 @@ const Admin = () => {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {getAssinaturaStatusBadge(usuario.assinatura_status)}
-                                {!usuario.ativo && <EyeOff className="h-4 w-4 text-muted-foreground" />}
                                 {usuario.assinatura_status !== 'ATIVA' && (
                                   <Button
                                     size="sm"
@@ -1465,16 +1557,42 @@ const Admin = () => {
                               </div>
                             </TableCell>
                             <TableCell>
+                              <div className="flex flex-col gap-1">
+                                {usuario.assinatura_validade ? (
+                                  <span className="text-sm">
+                                    {format(new Date(usuario.assinatura_validade), 'dd/MM/yyyy')}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                                <Input
+                                  type="date"
+                                  className="h-7 text-xs w-32"
+                                  defaultValue={usuario.assinatura_validade ? usuario.assinatura_validade.split('T')[0] : ''}
+                                  onBlur={(e) => {
+                                    if (e.target.value) {
+                                      handleUpdateValidade(usuario.id, e.target.value);
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>
                               <Switch
                                 checked={usuario.ativo}
                                 onCheckedChange={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
                               />
                             </TableCell>
                             <TableCell>
-                              {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenHistorico(usuario)}
+                                  title="Ver Histórico de Pagamentos"
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1482,13 +1600,6 @@ const Admin = () => {
                                   title="Gerenciar Dependentes"
                                 >
                                   <UserPlus className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleToggleUserStatus(usuario.id, usuario.ativo)}
-                                >
-                                  {usuario.ativo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </Button>
                               </div>
                             </TableCell>
@@ -2375,6 +2486,151 @@ const Admin = () => {
                         <TableCell>{dep.data_nascimento ? new Date(dep.data_nascimento).toLocaleDateString('pt-BR') : '-'}</TableCell>
                         <TableCell className="capitalize">{dep.parentesco || '-'}</TableCell>
                         <TableCell><Button size="sm" variant="destructive" onClick={() => handleDeleteDependente(dep.id, dep.nome)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Histórico de Assinaturas */}
+        <Dialog open={historicoDialog} onOpenChange={setHistoricoDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Histórico de Pagamentos - {historicoUsuario?.nome}</DialogTitle>
+              <DialogDescription>
+                Registro de pagamentos e períodos de assinatura
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  Validade atual: {historicoUsuario?.assinatura_validade 
+                    ? format(new Date(historicoUsuario.assinatura_validade), 'dd/MM/yyyy')
+                    : 'Não definida'}
+                </div>
+                <Dialog open={addHistoricoDialog} onOpenChange={setAddHistoricoDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="primary_cta">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Registrar Pagamento
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Registrar Pagamento</DialogTitle>
+                      <DialogDescription>
+                        Adicione um novo registro de pagamento. A validade será atualizada automaticamente.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Valor (R$) *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={newHistorico.valor}
+                          onChange={(e) => setNewHistorico({...newHistorico, valor: e.target.value})}
+                          placeholder="59.90"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Data Início *</Label>
+                          <Input
+                            type="date"
+                            value={newHistorico.data_inicio}
+                            onChange={(e) => setNewHistorico({...newHistorico, data_inicio: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Data Fim *</Label>
+                          <Input
+                            type="date"
+                            value={newHistorico.data_fim}
+                            onChange={(e) => setNewHistorico({...newHistorico, data_fim: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Método de Pagamento</Label>
+                        <Select 
+                          value={newHistorico.metodo_pagamento} 
+                          onValueChange={(value) => setNewHistorico({...newHistorico, metodo_pagamento: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o método" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pix">PIX</SelectItem>
+                            <SelectItem value="cartao">Cartão</SelectItem>
+                            <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                            <SelectItem value="transferencia">Transferência</SelectItem>
+                            <SelectItem value="manual">Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Observações</Label>
+                        <Textarea
+                          value={newHistorico.observacoes}
+                          onChange={(e) => setNewHistorico({...newHistorico, observacoes: e.target.value})}
+                          placeholder="Observações adicionais..."
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => {
+                        setAddHistoricoDialog(false);
+                        setNewHistorico({ valor: '', data_inicio: '', data_fim: '', metodo_pagamento: '', observacoes: '' });
+                      }}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateHistorico} variant="primary_cta">
+                        Registrar Pagamento
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {historicoLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Carregando histórico...</div>
+              ) : historicoAssinaturas.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">Nenhum registro de pagamento encontrado</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data Pagamento</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Observações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historicoAssinaturas.map((hist: any) => (
+                      <TableRow key={hist.id}>
+                        <TableCell>
+                          {hist.data_pagamento 
+                            ? format(new Date(hist.data_pagamento), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="font-medium text-green-600">
+                          R$ {parseFloat(hist.valor).toFixed(2).replace('.', ',')}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(hist.data_inicio), 'dd/MM/yyyy')} - {format(new Date(hist.data_fim), 'dd/MM/yyyy')}
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {hist.metodo_pagamento || '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={hist.observacoes}>
+                          {hist.observacoes || '-'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

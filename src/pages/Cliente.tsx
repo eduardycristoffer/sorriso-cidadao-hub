@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { format, differenceInDays, isPast } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { 
   User, 
   CreditCard, 
@@ -17,7 +19,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logoSorrisoCidadao from "@/assets/logo-sorriso-cidadao.png";
@@ -28,6 +31,7 @@ interface Usuario {
   nome: string;
   email: string;
   assinatura_status: string;
+  assinatura_validade: string | null;
   ativo: boolean;
 }
 
@@ -380,13 +384,44 @@ const Cliente = () => {
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xl sm:text-2xl font-bold">{getStatusBadge(user?.assinatura_status || "PENDENTE")}</div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Cartão Sorriso Cidadão
-                      </p>
-                    </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="text-xl sm:text-2xl font-bold">{getStatusBadge(user?.assinatura_status || "PENDENTE")}</div>
+                    
+                    {user?.assinatura_validade && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Válida até: <span className="font-semibold text-foreground">
+                            {format(new Date(user.assinatura_validade), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                          </span>
+                        </p>
+                        
+                        {(() => {
+                          const validadeDate = new Date(user.assinatura_validade);
+                          const diasRestantes = differenceInDays(validadeDate, new Date());
+                          
+                          if (isPast(validadeDate)) {
+                            return (
+                              <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                                <XCircle className="h-4 w-4" />
+                                <span className="text-sm font-medium">Assinatura vencida</span>
+                              </div>
+                            );
+                          } else if (diasRestantes <= 7) {
+                            return (
+                              <div className="flex items-center gap-2 text-orange-600 bg-orange-100 px-3 py-2 rounded-md">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span className="text-sm font-medium">Vence em {diasRestantes} {diasRestantes === 1 ? 'dia' : 'dias'}</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      Cartão Sorriso Cidadão
+                    </p>
                   </div>
                 </CardContent>
               </Card>

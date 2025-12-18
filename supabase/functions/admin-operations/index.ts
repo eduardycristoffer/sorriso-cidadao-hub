@@ -228,6 +228,66 @@ serve(async (req) => {
         result = dependentes;
         break;
 
+      // HISTÓRICO DE ASSINATURAS
+      case 'list_historico_assinaturas':
+        const { data: historico, error: listHistError } = await supabase
+          .from('historico_assinaturas')
+          .select('*')
+          .eq('usuario_id', data.usuario_id)
+          .order('data_pagamento', { ascending: false });
+        
+        if (listHistError) throw listHistError;
+        result = historico;
+        break;
+
+      case 'create_historico_assinatura':
+        const { data: newHist, error: createHistError } = await supabase
+          .from('historico_assinaturas')
+          .insert({
+            usuario_id: data.usuario_id,
+            valor: data.valor,
+            data_inicio: data.data_inicio,
+            data_fim: data.data_fim,
+            metodo_pagamento: data.metodo_pagamento || null,
+            observacoes: data.observacoes || null,
+          })
+          .select()
+          .single();
+        
+        if (createHistError) throw createHistError;
+        
+        // Atualizar validade do usuário
+        const { error: updateValidadeError } = await supabase
+          .from('usuarios')
+          .update({ 
+            assinatura_validade: data.data_fim,
+            assinatura_status: 'ATIVA',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.usuario_id);
+        
+        if (updateValidadeError) throw updateValidadeError;
+        
+        result = newHist;
+        console.log('Histórico criado e validade atualizada:', newHist);
+        break;
+
+      case 'update_usuario_validade':
+        const { data: updatedValidade, error: updateValError } = await supabase
+          .from('usuarios')
+          .update({ 
+            assinatura_validade: data.assinatura_validade,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.id)
+          .select()
+          .single();
+        
+        if (updateValError) throw updateValError;
+        result = updatedValidade;
+        console.log('Validade atualizada:', updatedValidade);
+        break;
+
       // PAYMENT LINKS
       case 'list_payment_links':
         const { data: paymentLinks, error: listPayError } = await supabase
