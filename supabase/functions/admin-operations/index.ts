@@ -255,6 +255,31 @@ serve(async (req) => {
         console.log('Payment link atualizado:', updatedPay);
         break;
 
+      case 'save_payment_link':
+        // Salvar payment link gerado pelo frontend (chamada Vega direto do browser)
+        const { data: savedPayLink, error: savePayError } = await supabase
+          .from('payment_links')
+          .insert({
+            nome: data.nome,
+            descricao: data.descricao || null,
+            valor: data.valor,
+            transaction_token: data.transaction_token,
+            pix_code: data.pix_code,
+            qr_code_url: data.qr_code_url || null,
+            status: data.status || 'pending',
+            cliente_id: data.cliente_id || null,
+            cliente_email: data.cliente_email || null,
+            cliente_nome: data.cliente_nome || null,
+            created_by: 'admin',
+          })
+          .select()
+          .single();
+        
+        if (savePayError) throw savePayError;
+        result = savedPayLink;
+        console.log('Payment link salvo (frontend):', savedPayLink, 'Vega integrado:', data.vega_integrated);
+        break;
+
       // LISTAR DADOS (para admin)
       case 'list_usuarios':
         const { data: usuarios, error: listUsersError } = await supabase
