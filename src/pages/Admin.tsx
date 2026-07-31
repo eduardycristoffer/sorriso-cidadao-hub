@@ -160,22 +160,26 @@ const Admin = () => {
     checkAuth();
   }, []);
 
+  // Verifica no BACKEND se a sessão atual tem papel de administrador (RBAC)
+  const verifyAdminAccess = async () => {
+    const { data, error } = await supabase.functions.invoke('admin-operations', {
+      body: { action: 'check_admin', data: {} }
+    });
+    if (error) return false;
+    return Boolean(data?.success && data?.data?.is_admin);
+  };
+
   const checkAuth = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        // Verificar se é admin
-        const { data: userData } = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("auth_user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle();
+      const { data: { session } } = await supabase.auth.getSession();
 
-        if (userData) {
+      if (session) {
+        const isAdmin = await verifyAdminAccess();
+        if (isAdmin) {
           setIsAuthenticated(true);
           loadDashboardData();
+        } else {
+          await supabase.auth.signOut();
         }
       }
     } catch (error) {
@@ -190,27 +194,35 @@ const Admin = () => {
     setLoginLoading(true);
 
     try {
-      // Verificar credenciais válidas (sem usar Supabase auth)
-      const validCredentials = [
-        { email: "eduardy", password: "@Tryade2025" },
-        { email: "novaodontologiaanapolis@gmail.com", password: "@novaodonto2025" },
-        { email: "rodrigo", password: "@novaodonto2025" }
-      ];
+      // Autenticação real no backend (e-mail + senha)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-      const validCredential = validCredentials.find(cred => 
-        cred.email === email && cred.password === password
-      );
-
-      if (!validCredential) {
+      if (signInError) {
         toast({
           title: "Credenciais inválidas",
-          description: "Usuário ou senha incorretos.",
+          description: "E-mail ou senha incorretos.",
           variant: "destructive",
         });
-        setLoginLoading(false);
         return;
       }
 
+      // Autorização verificada no backend via papel de administrador
+      const isAdmin = await verifyAdminAccess();
+
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        toast({
+          title: "Acesso restrito",
+          description: "Esta conta não tem permissão de administrador.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPassword("");
       setIsAuthenticated(true);
       loadDashboardData();
       toast({
@@ -229,6 +241,7 @@ const Admin = () => {
       setLoginLoading(false);
     }
   };
+
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
