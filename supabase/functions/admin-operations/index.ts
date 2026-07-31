@@ -15,15 +15,85 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ===== AUTENTICAÇÃO + RBAC (obrigatório para todas as ações) =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const authClient = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    const claims = claimsData?.claims as Record<string, unknown> | undefined;
+
+    if (claimsError || !claims?.sub) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Sessão inválida' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claims.sub as string;
+    const userEmail = ((claims.email as string) || '').toLowerCase();
+    const emailVerified = Boolean(
+      (claims as any).email_verified ?? (claims as any).user_metadata?.email_verified ?? false
+    );
+
+    // Papel vem do banco (RBAC), nunca do cliente
+    const { data: isAdminRole } = await supabase.rpc('has_role', {
+      _user_id: userId,
+      _role: 'admin',
+    });
+
+    let isAdmin = Boolean(isAdminRole);
+
+    // Bootstrap controlado por variável de ambiente: e-mails autorizados
+    // recebem o papel admin no primeiro acesso (apenas se o e-mail for verificado).
+    if (!isAdmin && userEmail && emailVerified) {
+      const allowList = (Deno.env.get('ADMIN_ALLOWED_EMAILS') || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (allowList.includes(userEmail)) {
+        const { error: grantError } = await supabase
+          .from('user_roles')
+          .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id,role' });
+        if (grantError) {
+          console.error('Erro ao conceder papel admin:', grantError);
+        } else {
+          isAdmin = true;
+          console.log('Papel admin concedido via allowlist para', userEmail);
+        }
+      }
+    }
+
+    if (!isAdmin) {
+      console.warn('Acesso negado para usuário', userId);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Acesso restrito a administradores' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { action, data } = await req.json();
-    console.log(`Admin operation: ${action}`, data);
+    console.log(`Admin operation: ${action} por ${userId}`);
 
     let result;
 
     switch (action) {
+      // Verificação de sessão/permissão para o painel
+      case 'check_admin':
+        result = { is_admin: true, user_id: userId, email: userEmail };
+        break;
+
       // CRIAR USUÁRIO COM AUTH ADMIN (sem rate limit)
       case 'create_usuario':
         console.log('Criando usuário:', data.email);
