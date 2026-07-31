@@ -23,7 +23,7 @@ const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [email, setEmail] = useState("eduardy");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { toast } = useToast();
 
