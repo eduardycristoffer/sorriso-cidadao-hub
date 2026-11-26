@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      adesoes: {
+        Row: {
+          cpf: string | null
+          created_at: string
+          crm_account_id: number | null
+          crm_contact_id: number | null
+          crm_conversation_id: number | null
+          email: string | null
+          id: string
+          nome: string | null
+          qtd_dependentes: number
+          status: string
+          telefone: string
+          updated_at: string
+          usuario_id: string | null
+        }
+        Insert: {
+          cpf?: string | null
+          created_at?: string
+          crm_account_id?: number | null
+          crm_contact_id?: number | null
+          crm_conversation_id?: number | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          qtd_dependentes?: number
+          status?: string
+          telefone: string
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Update: {
+          cpf?: string | null
+          created_at?: string
+          crm_account_id?: number | null
+          crm_contact_id?: number | null
+          crm_conversation_id?: number | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          qtd_dependentes?: number
+          status?: string
+          telefone?: string
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adesoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorias: {
         Row: {
           created_at: string
@@ -79,6 +135,77 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      cobrancas: {
+        Row: {
+          adesao_id: string
+          confirmacao_enviada_em: string | null
+          confirmacao_status: string
+          created_at: string
+          crm_conversation_id: number | null
+          desconto_centavos: number
+          expira_em: string | null
+          gateway: string
+          gateway_ref: string | null
+          id: string
+          idempotency_key: string | null
+          individual: boolean
+          link_pagamento: string | null
+          metodo: string
+          pix_copia_cola: string | null
+          status: string
+          updated_at: string
+          valor_centavos: number
+        }
+        Insert: {
+          adesao_id: string
+          confirmacao_enviada_em?: string | null
+          confirmacao_status?: string
+          created_at?: string
+          crm_conversation_id?: number | null
+          desconto_centavos?: number
+          expira_em?: string | null
+          gateway?: string
+          gateway_ref?: string | null
+          id?: string
+          idempotency_key?: string | null
+          individual?: boolean
+          link_pagamento?: string | null
+          metodo: string
+          pix_copia_cola?: string | null
+          status?: string
+          updated_at?: string
+          valor_centavos: number
+        }
+        Update: {
+          adesao_id?: string
+          confirmacao_enviada_em?: string | null
+          confirmacao_status?: string
+          created_at?: string
+          crm_conversation_id?: number | null
+          desconto_centavos?: number
+          expira_em?: string | null
+          gateway?: string
+          gateway_ref?: string | null
+          id?: string
+          idempotency_key?: string | null
+          individual?: boolean
+          link_pagamento?: string | null
+          metodo?: string
+          pix_copia_cola?: string | null
+          status?: string
+          updated_at?: string
+          valor_centavos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobrancas_adesao_id_fkey"
+            columns: ["adesao_id"]
+            isOneToOne: false
+            referencedRelation: "adesoes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracoes: {
         Row: {
@@ -192,12 +319,46 @@ export type Database = {
           },
         ]
       }
+      eventos_gateway: {
+        Row: {
+          created_at: string
+          event_key: string
+          external_code: string | null
+          gateway_ref: string | null
+          id: string
+          payload: Json | null
+          resultado: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_key: string
+          external_code?: string | null
+          gateway_ref?: string | null
+          id?: string
+          payload?: Json | null
+          resultado?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_key?: string
+          external_code?: string | null
+          gateway_ref?: string | null
+          id?: string
+          payload?: Json | null
+          resultado?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       historico_assinaturas: {
         Row: {
           created_at: string | null
           data_fim: string
           data_inicio: string
           data_pagamento: string | null
+          gateway_ref: string | null
           id: string
           metodo_pagamento: string | null
           observacoes: string | null
@@ -209,6 +370,7 @@ export type Database = {
           data_fim: string
           data_inicio: string
           data_pagamento?: string | null
+          gateway_ref?: string | null
           id?: string
           metodo_pagamento?: string | null
           observacoes?: string | null
@@ -220,6 +382,7 @@ export type Database = {
           data_fim?: string
           data_inicio?: string
           data_pagamento?: string | null
+          gateway_ref?: string | null
           id?: string
           metodo_pagamento?: string | null
           observacoes?: string | null
@@ -241,14 +404,17 @@ export type Database = {
           cliente_id: string
           clinica_id: string | null
           created_at: string
+          crm_conversation_id: number | null
           data_confirmada: string | null
           data_proposta_admin: string | null
           data_solicitada: string
           dentista_id: string | null
           id: string
+          idempotency_key: string | null
           nome_procedimento_manual: string | null
           observacoes_cliente: string | null
           observacoes_internas: string | null
+          origem: string | null
           procedimento_id: string | null
           resposta_cliente: string | null
           status: string | null
@@ -259,14 +425,17 @@ export type Database = {
           cliente_id: string
           clinica_id?: string | null
           created_at?: string
+          crm_conversation_id?: number | null
           data_confirmada?: string | null
           data_proposta_admin?: string | null
           data_solicitada: string
           dentista_id?: string | null
           id?: string
+          idempotency_key?: string | null
           nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
+          origem?: string | null
           procedimento_id?: string | null
           resposta_cliente?: string | null
           status?: string | null
@@ -277,14 +446,17 @@ export type Database = {
           cliente_id?: string
           clinica_id?: string | null
           created_at?: string
+          crm_conversation_id?: number | null
           data_confirmada?: string | null
           data_proposta_admin?: string | null
           data_solicitada?: string
           dentista_id?: string | null
           id?: string
+          idempotency_key?: string | null
           nome_procedimento_manual?: string | null
           observacoes_cliente?: string | null
           observacoes_internas?: string | null
+          origem?: string | null
           procedimento_id?: string | null
           resposta_cliente?: string | null
           status?: string | null
@@ -380,6 +552,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      planos: {
+        Row: {
+          ativo: boolean
+          checkout_cartao_url: string | null
+          codigo: string
+          created_at: string
+          desconto_pix_centavos: number | null
+          id: string
+          meses_validade: number
+          nome: string
+          updated_at: string
+          valor_cartao_centavos: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          checkout_cartao_url?: string | null
+          codigo: string
+          created_at?: string
+          desconto_pix_centavos?: number | null
+          id?: string
+          meses_validade?: number
+          nome: string
+          updated_at?: string
+          valor_cartao_centavos?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          checkout_cartao_url?: string | null
+          codigo?: string
+          created_at?: string
+          desconto_pix_centavos?: number | null
+          id?: string
+          meses_validade?: number
+          nome?: string
+          updated_at?: string
+          valor_cartao_centavos?: number | null
+        }
+        Relationships: []
       }
       procedimentos: {
         Row: {
@@ -618,12 +829,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -647,11 +858,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -672,11 +883,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -697,11 +908,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -714,11 +925,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
