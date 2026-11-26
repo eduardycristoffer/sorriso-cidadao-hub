@@ -79,7 +79,7 @@ serve(async (req) => {
             is_digital: true,
             description: data.descricao || ''
           }],
-          notification_url: `${supabaseUrl}/functions/v1/checkout-webhook`
+          notification_url: `${supabaseUrl}/functions/v1/checkout-webhook${Deno.env.get('VEGA_WEBHOOK_SECRET') ? `?token=${encodeURIComponent(Deno.env.get('VEGA_WEBHOOK_SECRET')!)}` : ''}`
         };
 
         console.log('Enviando para Vega Checkout:', JSON.stringify(vegaPayload));

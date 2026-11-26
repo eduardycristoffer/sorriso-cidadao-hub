@@ -1,10 +1,15 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { eventKey, normalizeVegaPayload, safeEqual } from "../_shared/sdr-core.ts";
+import { processarEventoSdr } from "../_shared/sdr-webhook.ts";
+import { n8nNotify, supabaseWebhookRepo } from "../_shared/sdr-webhook-repo.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-token',
 };
+
+const jsonResp = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
 
 interface CheckoutWebhookData {
   // Formato padrão (v1)
@@ -48,10 +53,51 @@ const handler = async (req: Request): Promise<Response> => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
+  // Autenticação: com VEGA_WEBHOOK_SECRET configurado, só entra quem mandar o token (?token= ou x-webhook-token).
+  const secret = Deno.env.get('VEGA_WEBHOOK_SECRET');
+  const provided = new URL(req.url).searchParams.get('token') ?? req.headers.get('x-webhook-token');
+  const authed = !!secret && await safeEqual(provided, secret);
+  if (secret && !authed) {
+    console.warn('Webhook recusado: token inválido');
+    return jsonResp({ success: false, error: 'unauthorized' }, 401);
+  }
+  if (!secret) console.warn('VEGA_WEBHOOK_SECRET não configurado: webhook sem autenticação (cobranças do SDR desativadas)');
+
+  let webhookData: CheckoutWebhookData = {};
   try {
-    const webhookData: CheckoutWebhookData = await req.json();
-    
-    console.log('Webhook recebido:', JSON.stringify(webhookData, null, 2));
+    webhookData = await req.json();
+
+    // Só dados mínimos no log (sem CPF/e-mail/telefone).
+    console.log('Webhook recebido:', JSON.stringify({
+      ref: webhookData.order_id || webhookData.transaction_token || webhookData.tansaction_token,
+      status: webhookData.status || webhookData.payment_status,
+    }));
+
+    // Cobranças criadas pelo SDR (Pix/cartão pelo WhatsApp): idempotente, confirma uma única vez.
+    if (authed) {
+      const ev = normalizeVegaPayload(webhookData as Record<string, any>);
+      const refKey = ev.gatewayRef ?? ev.externalCode;
+      if (refKey) {
+        try {
+          const key = await eventKey(refKey, ev.rawStatus, ev.ts);
+          const r = await processarEventoSdr(supabaseWebhookRepo(supabase), n8nNotify(supabase), {
+            key, gatewayRef: ev.gatewayRef, rawStatus: ev.rawStatus, externalCode: ev.externalCode,
+            customer: ev.customer, amount: ev.amount, payload: webhookData,
+          });
+          if (r.status !== 'nao_sdr') {
+            console.log('Webhook SDR:', r.status);
+            return jsonResp({ success: true, sdr: r });
+          }
+        } catch (sdrError: any) {
+          // Migração do SDR ainda não aplicada: não derruba o fluxo legado de vendas do site.
+          if (sdrError?.code === '42P01' || sdrError?.code === 'PGRST205') {
+            console.warn('Tabelas do SDR ausentes, seguindo no fluxo legado');
+          } else {
+            throw sdrError;
+          }
+        }
+      }
+    }
 
     // Definir order_id baseado nos dados recebidos (suporta ambos formatos)
     // Nota: API PIX pode enviar "tansaction_token" (com typo)
@@ -203,6 +249,10 @@ const handler = async (req: Request): Promise<Response> => {
       if (status === 'approved') {
         updateData.assinatura_validade = dataValidade.toISOString();
       }
+      // Evento atrasado "pending" não pode rebaixar uma assinatura já ativa
+      if (status === 'pending' && existingUser.assinatura_status === 'ATIVA') {
+        delete updateData.assinatura_status;
+      }
 
       const { error: updateError } = await supabase
         .from('usuarios')
@@ -251,19 +301,26 @@ const handler = async (req: Request): Promise<Response> => {
       const valorCompra = (webhookData.total_price || webhookData.amount || 0) / 100; // Centavos para reais
       const metodoPagamento = webhookData.method || webhookData.payment_method || 'pix';
 
-      const { error: historicoError } = await supabase
-        .from('historico_assinaturas')
-        .insert({
+      const historicoRow = {
           usuario_id: usuarioId,
           valor: valorCompra,
           data_pagamento: dataCompra.toISOString(),
           data_inicio: dataCompra.toISOString().split('T')[0],
           data_fim: dataValidade.toISOString().split('T')[0],
           metodo_pagamento: metodoPagamento,
-          observacoes: `Pagamento automático via webhook - Order: ${orderId}`
-        });
+          observacoes: `Pagamento automático via webhook - Order: ${orderId}`,
+          gateway_ref: orderId
+      };
+      let { error: historicoError } = await supabase.from('historico_assinaturas').insert(historicoRow);
+      if (historicoError && (historicoError.code === '42703' || historicoError.code === 'PGRST204')) {
+        // Coluna gateway_ref ainda não existe (migração pendente): grava sem ela.
+        const { gateway_ref: _ignored, ...semRef } = historicoRow;
+        ({ error: historicoError } = await supabase.from('historico_assinaturas').insert(semRef));
+      }
 
-      if (historicoError) {
+      if (historicoError && historicoError.code === '23505') {
+        console.log('Histórico já registrado para', orderId);
+      } else if (historicoError) {
         console.error('Erro ao registrar histórico:', historicoError);
         // Não bloquear o webhook por erro no histórico
       } else {
@@ -297,7 +354,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Tentar registrar erro no banco
     try {
-      const errorData = await req.clone().json();
+      const errorData: any = webhookData;
       await supabase
         .from('webhook_events')
         .insert({
@@ -314,7 +371,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: "erro_interno" 
       }),
       {
         status: 500,
@@ -327,4 +384,4 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-serve(handler);
+Deno.serve(handler);

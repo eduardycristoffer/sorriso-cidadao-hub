@@ -8,3 +8,28 @@ verify_jwt = false
 
 [functions.create-payment-link]
 verify_jwt = false
+
+# SDR WhatsApp: autenticadas por x-sdr-key (SDR_API_KEY), por isso sem JWT
+[functions.sdr-lookup]
+verify_jwt = false
+
+[functions.sdr-planos]
+verify_jwt = false
+
+[functions.sdr-adesao]
+verify_jwt = false
+
+[functions.sdr-cobranca]
+verify_jwt = false
+
+[functions.sdr-status]
+verify_jwt = false
+
+[functions.sdr-catalogo]
+verify_jwt = false
+
+[functions.sdr-agendar]
+verify_jwt = false
+
+[functions.sdr-agenda]
+verify_jwt = false
